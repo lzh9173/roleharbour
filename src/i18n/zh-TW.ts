@@ -3,7 +3,7 @@ import type { MessageKey } from './catalog';
 export const zhTWMessages = {
   'settings.optionalKey': 'TypeSafe API Key（選填）',
   'settings.basicAvailable':
-    '無需 Key 即可查看職缺要求原文、經驗原文及僱主名單配對。JEV 為選用增强，提供 AI 要求分析、職業參考及簽證措辭判讀。',
+    '安裝後就能查看招聘要求、經驗要求和僱主名單，無需額外設定。想讓 AI 進一步解讀職缺和簽證說明，再填寫下方的 TypeSafe Key 即可。',
   'page.basicTruncated': '部分內容超出擷取範圍，請查看完整職缺說明。',
   'page.basicEmpty': '未擷取到明確的要求原文，請查看完整職缺說明。',
   'page.basicRequirements': '要求相關原文',
@@ -16,9 +16,6 @@ export const zhTWMessages = {
   'page.employerAliasMatch': '透過簡稱 {alias} 配對',
   'page.employerAliasSource': '名稱對應來源 ↗',
   'page.employerReview': '需核實',
-  'page.employerNameVariant': '可能配對：名稱寫法或公司後綴不同',
-  'page.employerShortName': '可能配對：公司名稱可能未寫全',
-  'page.employerInitials': '可能配對：首字母相同，尚未確認簡稱',
   'errors.employerCandidates':
     '找到 {count} 個可能對應的僱主，顯示 {shown} 個；僅名稱相近，需核實實際聘用公司和 NZBN。未確認配對不代表僱主未認證。',
   'page.requirementRequired': '必需',
@@ -51,8 +48,6 @@ export const zhTWMessages = {
   'settings.saveKey': '儲存 Key',
   'settings.keyCleared': 'Key 與分析授權已清除。',
   'settings.clearKey': '清除 Key',
-  'settings.keyStoredLocal': '目前 Key：儲存在本機。',
-  'settings.keyStoredSession': '目前 Key：僅限本次工作階段。',
   'settings.saveKeyHint': '儲存 Key 不會發出分析請求。',
   'settings.autoAnalyze': '開啟 SEEK 職缺時自動分析',
   'settings.autoAnalyzeHint': '分析技能與經驗要求，相同內容會使用已有結果。',
@@ -141,7 +136,6 @@ export const zhTWMessages = {
   'page.matched': '已比對相符',
   'page.notMatched': '未比對相符',
   'page.checkUnavailable': '暫時無法查詢',
-  'page.companyNotProvided': '未提供公司名稱',
   'page.companyMissing': '未提供公司名稱',
   'page.listedExpiry': '名單所列到期日 {date}',
   'page.listDate': '名單日期：{date}',

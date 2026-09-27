@@ -88,23 +88,10 @@ export const pageMessages = {
   'page.employerAliasMatch': ['通过简称 {alias} 匹配', 'Matched via alias {alias}'],
   'page.employerAliasSource': ['名称对应来源 ↗', 'Name mapping source ↗'],
   'page.employerReview': ['需核实', 'Needs review'],
-  'page.employerNameVariant': [
-    '可能匹配：名称写法或公司后缀不同',
-    'Possible match: name format or company suffix differs',
-  ],
-  'page.employerShortName': [
-    '可能匹配：公司名称可能未写全',
-    'Possible match: company name may be shortened',
-  ],
-  'page.employerInitials': [
-    '可能匹配：首字母相同，尚未确认简称',
-    'Possible match: initials agree; abbreviation not verified',
-  ],
   'page.checking': ['查询中', 'Checking'],
   'page.matched': ['已匹配', 'Matched'],
   'page.notMatched': ['未匹配', 'Not matched'],
   'page.checkUnavailable': ['暂时无法查询', 'Check unavailable'],
-  'page.companyNotProvided': ['公司名称未提供', 'Company name not provided'],
   'page.companyMissing': ['未提供公司名称', 'Company name not provided'],
   'page.listedExpiry': ['名单所列到期日 {date}', 'Listed expiry date: {date}'],
   'page.listDate': ['名单日期：{date}', 'List date: {date}'],

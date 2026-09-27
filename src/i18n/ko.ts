@@ -3,7 +3,7 @@ import type { MessageKey } from './catalog';
 export const koMessages = {
   'settings.optionalKey': 'TypeSafe API Key (선택 사항)',
   'settings.basicAvailable':
-    'Key 없이 요건·경력 원문과 고용주 목록 대조를 이용할 수 있습니다. JEV는 선택 사항이며 AI 요건 분석, 직업 참고 정보, 비자 문구 판단을 추가합니다.',
+    '추가 설정 없이 채용 조건, 필요한 경력, 고용주 목록 정보를 확인할 수 있습니다. AI로 채용 공고와 비자 관련 설명을 더 자세히 알아보려면 아래에 TypeSafe Key를 입력하세요.',
   'page.basicTruncated': '일부 내용이 추출 범위를 초과합니다. 공고 전체를 확인하세요.',
   'page.basicEmpty': '명확한 요건 원문을 추출하지 못했습니다. 공고 전체를 확인하세요.',
   'page.basicRequirements': '요건 관련 원문',
@@ -18,9 +18,6 @@ export const koMessages = {
   'page.employerAliasMatch': '약칭 {alias}로 일치',
   'page.employerAliasSource': '명칭 대응 출처 ↗',
   'page.employerReview': '확인 필요',
-  'page.employerNameVariant': '일치 가능성: 이름 표기 또는 회사 접미사가 다름',
-  'page.employerShortName': '일치 가능성: 회사명이 축약되었을 수 있음',
-  'page.employerInitials': '일치 가능성: 머리글자는 같지만 약칭은 확인되지 않음',
   'errors.employerCandidates':
     '가능한 고용주 {count}개 중 {shown}개를 표시합니다. 이름이 비슷할 뿐이므로 실제 고용주와 NZBN을 확인하세요. 일치 여부가 확인되지 않았다고 해서 미인증 고용주라는 뜻은 아닙니다.',
   'page.requirementRequired': '필수',
@@ -56,8 +53,6 @@ export const koMessages = {
   'settings.saveKey': '키 저장',
   'settings.keyCleared': '키와 분석 동의를 삭제했습니다.',
   'settings.clearKey': '키 삭제',
-  'settings.keyStoredLocal': '현재 키: 이 기기에 저장됨.',
-  'settings.keyStoredSession': '현재 키: 이번 세션에서만 사용.',
   'settings.saveKeyHint': '키를 저장해도 분석 요청은 전송되지 않습니다.',
   'settings.autoAnalyze': 'SEEK 공고를 열면 자동으로 분석',
   'settings.autoAnalyzeHint':
@@ -153,7 +148,6 @@ export const koMessages = {
   'page.matched': '일치',
   'page.notMatched': '불일치',
   'page.checkUnavailable': '현재 조회할 수 없음',
-  'page.companyNotProvided': '회사명 정보 없음',
   'page.companyMissing': '회사명 정보 없음',
   'page.listedExpiry': '목록에 기재된 만료일: {date}',
   'page.listDate': '목록 기준일: {date}',

@@ -9,16 +9,17 @@ export function employerLabel(check?: EmployerCheck) {
   if (check.status === 'not_found') return t('page.notMatched');
   return t('page.checkUnavailable');
 }
-export function EmployerDetails({ check, employer }: { check?: EmployerCheck; employer: string }) {
+export function EmployerDetails({ check }: { check?: EmployerCheck }) {
   return (
-    <section className="pb-2 text-[12px] leading-[1.7] text-rh-muted">
-      <p className="mb-2 text-[13px] font-semibold text-rh-text">
-        {employer || t('page.companyNotProvided')}
-      </p>
+    <section className="pb-2 text-[12px] leading-[1.7] break-words text-rh-muted">
       {check?.matches.map((match) => (
         <p className="my-2" key={`${match.nzbn}:${match.employerName}`}>
           <b>{match.employerName}</b>
-          {match.tradingName && <span> · {match.tradingName}</span>}
+          {match.tradingName &&
+            match.tradingName.trim().replace(/\s+/g, ' ').toLowerCase() !==
+              match.employerName.trim().replace(/\s+/g, ' ').toLowerCase() && (
+              <span> · {match.tradingName}</span>
+            )}
           {match.nzbn && <span> · NZBN {match.nzbn}</span>}
           {match.expiryDate && (
             <span> · {t('page.listedExpiry', { date: formatDate(match.expiryDate) })}</span>
@@ -34,17 +35,6 @@ export function EmployerDetails({ check, employer }: { check?: EmployerCheck; em
               >
                 {t('page.employerAliasSource')}
               </a>
-            </span>
-          )}
-          {match.candidateMatch && (
-            <span className="block">
-              {t(
-                match.candidateMatch === 'name_variant'
-                  ? 'page.employerNameVariant'
-                  : match.candidateMatch === 'short_name'
-                    ? 'page.employerShortName'
-                    : 'page.employerInitials',
-              )}
             </span>
           )}
         </p>

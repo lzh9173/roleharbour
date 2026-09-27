@@ -434,7 +434,7 @@ export function InlinePanel({
               {t('page.listDetails')}
             </summary>
             <div className="pt-1 [overflow-wrap:anywhere]">
-              <EmployerDetails employer={draft.employer} check={employerCheck} />
+              <EmployerDetails check={employerCheck} />
             </div>
           </details>
         </div>
