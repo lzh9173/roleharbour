@@ -814,7 +814,7 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
         matches: [
           {
             employerName: 'Synthetic Legal Employer',
-            tradingName: '',
+            tradingName: 'Synthetic Legal Employer',
             nzbn: '9429000000001',
             candidateMatch: 'short_name',
           },
@@ -833,7 +833,10 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
         expect(badge.className).not.toContain('bg-[#e0f1eb]');
       }
       expect(shadow('detail').textContent).toContain(employer.note);
-      expect(shadow('detail').textContent).toContain('可能匹配：公司名称可能未写全');
+      const details = shadow('detail').querySelector('.panel-body > details')!;
+      expect(details.textContent).not.toContain('Synthetic Employer');
+      expect(details.textContent).not.toContain('可能匹配：公司名称可能未写全');
+      expect(details.textContent?.match(/Synthetic Legal Employer/g)).toHaveLength(1);
     },
   );
 

@@ -167,7 +167,7 @@ export function App() {
           aria-label={t('settings.title')}
         >
           <h1 className="mt-5 mb-3.5 text-[21px] font-[650]">{t('settings.title')}</h1>
-          <p className="mb-4 rounded-lg bg-rh-surface p-3 text-[12px] leading-[1.7] text-rh-muted">
+          <p className="mb-4 text-[12px] leading-[1.7] text-rh-muted">
             {t('settings.basicAvailable')}
           </p>
           <section className={styles.panel} data-testid="basic-settings">
@@ -297,11 +297,7 @@ export function App() {
                   {t('settings.clearKey')}
                 </button>
               </div>
-              <p className={styles.muted}>
-                {keyState.configured
-                  ? t(keyState.remembered ? 'settings.keyStoredLocal' : 'settings.keyStoredSession')
-                  : t('settings.saveKeyHint')}
-              </p>
+              {!keyState.configured && <p className={styles.muted}>{t('settings.saveKeyHint')}</p>}
             </>
             <label className={`${styles.checkRow} mb-0 border-t border-rh-border pt-3.5`}>
               <input
@@ -340,7 +336,7 @@ export function App() {
                   <Database size={19} />
                   {t('settings.jobBackup')}
                 </h2>
-                <div className="mt-[25px] mb-[13px] flex items-baseline gap-2.5">
+                <div className="mt-2.5 mb-[13px] flex items-baseline gap-2.5">
                   <strong className="text-[27px] font-[450] text-rh-link">
                     {formatNumber(jobs.length)}
                   </strong>

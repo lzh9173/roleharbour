@@ -1,8 +1,8 @@
 export const settingsMessages = {
   'settings.optionalKey': ['TypeSafe API Key（可选）', 'TypeSafe API Key (optional)'],
   'settings.basicAvailable': [
-    '无需 Key 即可查看职位要求原文、经验原文和雇主名单匹配。JEV 为可选增强，用于 AI 要求分析、职业参考和签证措辞判断。',
-    'No Key is needed for requirement excerpts, experience excerpts or employer-list matching. Optional JEV adds AI requirement analysis, occupation references and visa wording assessment.',
+    '安装后就能查看招聘要求、经验要求和雇主名单，无需额外设置。想让 AI 进一步解读职位和签证说明，再填写下方的 TypeSafe Key 即可。',
+    'See job requirements, experience requirements and employer-list information without any setup. To get AI help understanding the job and its visa wording, add your TypeSafe Key below.',
   ],
   'settings.openSettings': ['打开设置', 'Open settings'],
   'settings.language': ['界面语言', 'Language'],
@@ -53,8 +53,6 @@ export const settingsMessages = {
   'settings.saveKey': ['保存 Key', 'Save Key'],
   'settings.keyCleared': ['Key 与分析授权已清除。', 'Key and analysis consent cleared.'],
   'settings.clearKey': ['清除 Key', 'Clear Key'],
-  'settings.keyStoredLocal': ['当前 Key：保存在本机。', 'Current Key: saved on this device.'],
-  'settings.keyStoredSession': ['当前 Key：仅本次会话。', 'Current Key: this session only.'],
   'settings.saveKeyHint': [
     '保存 Key 不会发起分析请求。',
     'Saving a Key does not start an analysis.',

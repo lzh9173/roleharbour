@@ -3,7 +3,7 @@ import type { MessageKey } from './catalog';
 export const jaMessages = {
   'settings.optionalKey': 'TypeSafe API Key（任意）',
   'settings.basicAvailable':
-    'Key なしで要件・経験の原文と雇用主リストの照合を利用できます。任意の JEV 設定で AI 要件分析、職業参考情報、ビザ表現の判定を追加できます。',
+    '追加設定なしで、応募条件や必要な経験、雇用主リストの情報を確認できます。求人やビザに関する記載を AI に解説してもらうには、下に TypeSafe Key を入力してください。',
   'page.basicTruncated': '一部の内容は抽出上限を超えています。求人全文をご確認ください。',
   'page.basicEmpty': '明確な要件の原文を抽出できませんでした。求人全文をご確認ください。',
   'page.basicRequirements': '要件に関する原文',
@@ -18,9 +18,6 @@ export const jaMessages = {
   'page.employerAliasMatch': '略称 {alias} で一致',
   'page.employerAliasSource': '名称の対応関係の出典 ↗',
   'page.employerReview': '要確認',
-  'page.employerNameVariant': '一致の可能性：名称の表記または会社接尾辞が異なります',
-  'page.employerShortName': '一致の可能性：会社名が省略されている可能性があります',
-  'page.employerInitials': '一致の可能性：頭文字は一致しますが、略称は未確認です',
   'errors.employerCandidates':
     '候補の雇用主 {count} 件中 {shown} 件を表示しています。名称が似ているだけです。実際の雇用主と NZBN を確認してください。一致が未確認でも未認定とは限りません。',
   'page.requirementRequired': '必須',
@@ -56,8 +53,6 @@ export const jaMessages = {
   'settings.saveKey': 'キーを保存',
   'settings.keyCleared': 'キーと分析への同意を削除しました。',
   'settings.clearKey': 'キーを削除',
-  'settings.keyStoredLocal': '現在のキー：この端末に保存。',
-  'settings.keyStoredSession': '現在のキー：今回のセッションのみ。',
   'settings.saveKeyHint': 'キーを保存するだけでは、分析リクエストは送信されません。',
   'settings.autoAnalyze': 'SEEK で求人を開いたときに自動分析する',
   'settings.autoAnalyzeHint':
@@ -154,7 +149,6 @@ export const jaMessages = {
   'page.matched': '一致',
   'page.notMatched': '一致なし',
   'page.checkUnavailable': '現在確認できません',
-  'page.companyNotProvided': '会社名の記載なし',
   'page.companyMissing': '会社名の記載なし',
   'page.listedExpiry': 'リスト記載の有効期限 {date}',
   'page.listDate': 'リストの日付：{date}',
