@@ -3,17 +3,8 @@ export const pageMessages = {
     '部分内容超出提取范围，请查看完整职位说明。',
     'Some content exceeds the extraction limits. Check the full job description.',
   ],
-  'page.basicEmpty': [
-    '未提取到明确的要求原文，请查看完整职位说明。',
-    'No clear requirement excerpts found. Check the full job description.',
-  ],
   'page.basicRequirements': ['要求相关原文', 'Requirement excerpts'],
   'page.basicExperience': ['经验相关原文', 'Experience excerpts'],
-  'page.basicNotice': [
-    '按关键词整理职位原文，可能遗漏或误选；请结合完整招聘说明核实。',
-    'Job excerpts selected by keywords may miss or include unrelated text. Check the full advertisement.',
-  ],
-  'page.basicOverview': ['基础摘要 · 本地提取', 'Basic overview · extracted locally'],
   'page.openToolbar': [
     '请点击浏览器工具栏中的 RoleHarbour。',
     'Open RoleHarbour from your browser toolbar.',
@@ -69,10 +60,7 @@ export const pageMessages = {
     'Trying again uses your TypeSafe API credits',
   ],
   'page.retry': ['重试分析', 'Try again'],
-  'page.connectPrompt': [
-    '基础功能已可使用；配置 JEV 可增加 AI 分析。',
-    'Basic features are ready. Set up JEV to add AI analysis.',
-  ],
+  'page.connectPrompt': ['配置 JEV 可增加 AI 分析。', 'Set up JEV to add AI analysis.'],
   'page.configureAi': ['配置 AI', 'Set up AI'],
   'page.automaticAnalysis': ['自动分析岗位要求', 'Analyse jobs automatically'],
   'page.automaticConsent': [

@@ -5,12 +5,8 @@ export const koMessages = {
   'settings.basicAvailable':
     '추가 설정 없이 채용 조건, 필요한 경력, 고용주 목록 정보를 확인할 수 있습니다. AI로 채용 공고와 비자 관련 설명을 더 자세히 알아보려면 아래에 TypeSafe Key를 입력하세요.',
   'page.basicTruncated': '일부 내용이 추출 범위를 초과합니다. 공고 전체를 확인하세요.',
-  'page.basicEmpty': '명확한 요건 원문을 추출하지 못했습니다. 공고 전체를 확인하세요.',
   'page.basicRequirements': '요건 관련 원문',
   'page.basicExperience': '경력 관련 원문',
-  'page.basicNotice':
-    '키워드로 추출한 원문에는 누락되거나 관련 없는 내용이 있을 수 있습니다. 공고 전체를 확인하세요.',
-  'page.basicOverview': '기본 요약 · 로컬 추출',
   'page.retrying': '분석을 다시 시도하는 중입니다 ({attempt}/2)…',
   'errors.jev.retryFailed':
     '자동 재시도 후에도 분석을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.',
@@ -136,7 +132,7 @@ export const koMessages = {
   'page.analysisIncomplete': '분석이 완료되지 않았습니다. 다시 시도해 주세요.',
   'page.retryUsage': '다시 분석하면 본인의 TypeSafe API 사용량이 차감됩니다',
   'page.retry': '분석 재시도',
-  'page.connectPrompt': '기본 기능을 사용할 수 있습니다. JEV를 설정하면 AI 분석이 추가됩니다.',
+  'page.connectPrompt': 'JEV를 설정하면 AI 분석이 추가됩니다.',
   'page.configureAi': 'AI 설정',
   'page.automaticAnalysis': '지원 요건 자동 분석',
   'page.automaticConsent':

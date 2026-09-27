@@ -71,9 +71,8 @@ describe('basic overview without an analysis service', () => {
     expect(html).toContain(t('page.basicTruncated'));
   });
 
-  it('uses an honest empty state without claiming the employer has no requirements', () => {
+  it('hides the overview when no requirement excerpts are available', () => {
     const html = renderToStaticMarkup(createElement(BasicOverview, { body: 'Join our team.' }));
-    expect(html).toContain(t('page.basicEmpty'));
-    expect(html).not.toContain(t('page.notRequired'));
+    expect(html).toBe('');
   });
 });
