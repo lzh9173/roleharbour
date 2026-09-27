@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "RoleHarbour · NZ 職缺研究助手"
+  },
+  "extensionDescription": {
+    "message": "無需 Key 即可查看 SEEK 職缺要求原文與僱主名單配對，可選 TypeSafe JEV 增強分析。"
+  },
+  "openSettings": {
+    "message": "開啟設定"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "RoleHarbour · 뉴질랜드 구직 도우미"
+  },
+  "extensionDescription": {
+    "message": "Key 없이 SEEK 요건 원문과 고용주 목록 대조를 확인하세요. TypeSafe JEV 분석은 선택 사항입니다."
+  },
+  "openSettings": {
+    "message": "설정 열기"
+  }
+}

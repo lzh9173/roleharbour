@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "RoleHarbour · NZ Job Companion"
+  },
+  "extensionDescription": {
+    "message": "View SEEK requirement excerpts and employer matches without a Key. Add optional TypeSafe JEV analysis."
+  },
+  "openSettings": {
+    "message": "Open settings"
+  }
+}

@@ -1,0 +1,30 @@
+RoleHarbour 0.21.1
+Chrome 116 or later
+
+NEW INSTALLATION
+1. Extract roleharbour-0.21.1-chrome.zip.
+2. Open chrome://extensions and enable Developer mode.
+3. Choose Load unpacked and select the directory containing manifest.json.
+4. Open a complete public SEEK New Zealand job. Requirement/experience excerpts
+   work without a Key. Employer matching uses the locally downloaded list.
+
+OPTIONAL JEV ANALYSIS
+Open Settings, create and save your own TypeSafe API Key, accept data transfer
+and grant the optional TypeSafe API permission. Saving the Key makes no model
+request. Authorize analysis in the job panel. Automatic analysis is a separate
+opt-in and is off by default. Requests and validation retries can use credits.
+
+UPGRADE
+Keep the directory Chrome already loads: chrome-extension or
+roleharbour-0.11.0-chrome. Both contain the current build; the older name preserves
+installation identity. Reload the extension at chrome://extensions and refresh
+open SEEK tabs. Do not uninstall to upgrade: uninstalling deletes extension data.
+
+DATA
+Basic excerpts stay in page memory. JEV results are cached locally. Employer
+matching stays local; the dataset is checked weekly. Settings provides language
+selection and separate job/employer backups. Keys are excluded from backups.
+Historical backups remain supported without activating retired analysis engines.
+
+See README.md for structure and implementation, docs/DEVELOPMENT.md for build
+and verification, and docs/PRIVACY.md for data handling and permissions.

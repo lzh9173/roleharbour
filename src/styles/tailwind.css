@@ -1,0 +1,38 @@
+@import 'tailwindcss' source(none);
+
+/* Pixel tokens keep extension UI independent of the host site's root font size. */
+@theme inline {
+  /* SEEK-aligned palette shared by the embedded panel and extension settings. */
+  --color-rh-navy: #051a49;
+  --color-rh-text: #2e3849;
+  --color-rh-muted: #5a6881;
+  --color-rh-border: #e4e8ed;
+  --color-rh-border-strong: #8995a9;
+  --color-rh-surface: #f3f5f7;
+  --color-rh-link: #1e47a9;
+  --color-rh-info-bg: #e4f1fd;
+  --color-rh-focus: #1e47a9;
+  --color-rh-accent: #e60278;
+  --color-rh-accent-hover: #cd026b;
+  --color-rh-positive: #216e45;
+  --color-rh-positive-bg: #edf7f0;
+  --color-rh-positive-border: #a8cdb6;
+  --color-rh-danger: #b42318;
+  --color-rh-danger-bg: #fff0ee;
+  --color-rh-danger-border: #f3c9c3;
+  --color-rh-warning: #8a4b16;
+  --color-rh-warning-bg: #fff7e6;
+  --color-rh-warning-border: #e8c890;
+  --spacing: 4px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  --radius-4xl: 32px;
+  --font-sans:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
+    sans-serif;
+}

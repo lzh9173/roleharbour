@@ -1,0 +1,57 @@
+@import '../styles/tailwind.css';
+@source './*.tsx';
+@source './styles.ts';
+@source '../ui/RequirementsView.tsx';
+
+/* Chrome does not apply @property registrations inside shadow roots. Reset the
+   variables used by our utilities locally, without adding rules to SEEK. */
+@layer base {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    --tw-border-style: solid;
+    --tw-leading: initial;
+    --tw-font-weight: initial;
+    --tw-tracking: initial;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-color: initial;
+    --tw-shadow-alpha: 100%;
+    --tw-inset-shadow: 0 0 #0000;
+    --tw-inset-shadow-color: initial;
+    --tw-inset-shadow-alpha: 100%;
+    --tw-ring-color: initial;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-inset-ring-color: initial;
+    --tw-inset-ring-shadow: 0 0 #0000;
+    --tw-ring-inset: initial;
+    --tw-ring-offset-width: 0px;
+    --tw-ring-offset-color: #fff;
+    --tw-ring-offset-shadow: 0 0 #0000;
+    --tw-outline-style: solid;
+  }
+}
+
+/* Shadow roots isolate the extension from SEEK's typography and layout rules. */
+:host {
+  all: initial;
+  display: block;
+  color-scheme: light;
+  position: relative;
+  z-index: 2;
+  font:
+    14px/1.5 -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
+    'Noto Sans',
+    sans-serif;
+  color: #2e3849;
+  --roleharbour-card-margin-top: 18px;
+}
+
+/* The feed already provides spacing above its absolutely positioned actions. */
+:host([data-seek-filter-placement='feed']) {
+  --roleharbour-card-margin-top: 0px;
+}

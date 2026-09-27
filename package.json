@@ -1,0 +1,51 @@
+{
+  "name": "roleharbour",
+  "version": "0.21.1",
+  "private": true,
+  "type": "module",
+  "description": "NZ job research companion with local basics and optional JEV analysis",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "typecheck": "wxt prepare && tsc --noEmit",
+    "test": "vitest run",
+    "eval:jev": "node scripts/evaluate-jev.mjs",
+    "catalog:import": "node --experimental-strip-types scripts/import-occupations.ts",
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "postinstall": "wxt prepare",
+    "format": "prettier --write src entrypoints data scripts tests evaluation public docs README.md *.ts *.json *.yaml",
+    "format:check": "prettier --check src entrypoints data scripts tests evaluation public docs README.md *.ts *.json *.yaml"
+  },
+  "dependencies": {
+    "idb": "^8.0.3",
+    "lucide-react": "^1.47.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/chrome": "^0.3.0",
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^26.6.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@wxt-dev/module-react": "^1.2.2",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.1.0",
+    "prettier": "^3.9.8",
+    "read-excel-file": "^9.3.10",
+    "sharp": "^0.35.4",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1",
+    "web-ext": "^10.6.0",
+    "wxt": "^0.21.4"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  },
+  "packageManager": "pnpm@11.0.6"
+}
