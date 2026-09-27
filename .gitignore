@@ -13,3 +13,7 @@ release/roleharbour-*-chrome/
 # Local user backups are not source fixtures.
 /roleharbour-*.json
 /seek-filter-*.json
+
+# Python release verification bytecode.
+__pycache__/
+*.pyc

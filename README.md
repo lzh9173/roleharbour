@@ -1,5 +1,7 @@
 # RoleHarbour
 
+[![CI](https://github.com/lzh9173/roleharbour/actions/workflows/ci.yml/badge.svg)](https://github.com/lzh9173/roleharbour/actions/workflows/ci.yml)
+
 A Chrome extension for researching jobs on SEEK New Zealand. View requirement excerpts and employer-list matches without an API Key; optionally add AI analysis with your own TypeSafe JEV Key.
 
 **Version 0.21.1 · Chrome 116+ · Manifest V3**
@@ -23,7 +25,7 @@ The extension has no hosted application server, RoleHarbour account, analytics, 
 
 ### New installation
 
-1. Extract [the Chrome package](release/roleharbour-0.21.1-chrome.zip).
+1. Download the Chrome ZIP from [GitHub Releases](https://github.com/lzh9173/roleharbour/releases/latest), then extract it. Each release includes installation notes and SHA-256 checksums. Access to this private repository requires a GitHub account with permission.
 2. Open `chrome://extensions`, enable **Developer mode**, then choose **Load unpacked** and select the extracted directory containing `manifest.json`.
 3. Open a public job on `https://nz.seek.com` or `https://www.seek.co.nz`. Basic excerpts need no setup. Employer matching becomes available after the initial list download, or after importing a valid employer backup.
 4. Open the extension's settings to choose a language or manage backups.
@@ -43,6 +45,7 @@ Keep the directory Chrome already loads: `release/chrome-extension` or, for olde
 ## Project structure
 
 ```text
+.github/                CI, tag-triggered releases and weekly dependency updates
 entrypoints/
   background.ts          Message routing, task cancellation, employer update schedule
   seek.content.ts        Content-script registration on supported SEEK pages
@@ -59,8 +62,8 @@ src/
   styles/                Shared Tailwind theme
 data/occupations/       Bundled ANZSCO catalogue, source metadata and keyword enrichment
 public/                 Extension icons, Chrome locale metadata and attribution
-scripts/                Catalogue import, icon generation and evaluation launcher
-tests/                  Unit/integration tests with synthetic data and mocked boundaries
+scripts/                Catalogue import, icon generation, evaluation and release validation
+tests/                  Application regression tests and Python release-validation tests
 evaluation/             Synthetic JEV benchmark, scoring and report generation
 docs/                   Development guide, privacy notice and current review record
 release/                Current ZIP, checksums, install notes and stable unpacked folders
@@ -121,21 +124,29 @@ IndexedDB stores jobs and task state. Claiming a task prevents duplicate active 
 
 ## Develop and verify
 
-Use the Node.js range declared in `package.json`: `^22.22.2 || ^24.15.0 || >=26.0.0`, with pnpm 11.0.6.
+Use the Node.js range declared in `package.json`: `^22.22.2 || ^24.15.0 || >=26.0.0`, with pnpm 11.0.6. Release validation also requires Python 3.10 or newer (standard library only).
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm dev                              # WXT development/watch mode
 pnpm typecheck
 pnpm exec vitest run --maxWorkers=2
+pnpm test:release                     # Packaging and version guards
 pnpm eval:jev                         # Offline retrieval evaluation; no paid call
 pnpm format:check
 pnpm zip                              # Production build and ZIP
+pnpm release:prepare                  # Verify ZIP and stage release assets
 ```
 
 Build output is `.output/chrome-mv3`; the ZIP uses the package version. Publishing the build into the stable installation directories is a separate step described in [the development guide](docs/DEVELOPMENT.md).
 
 Tests use synthetic fixtures, mocked Chrome/network boundaries and temporary IndexedDB. `eval:jev` reports candidate retrieval coverage, not AI accuracy. Live evaluation is an explicit, potentially paid command documented in [evaluation/README.md](evaluation/README.md).
+
+## CI and releases
+
+Pushes and pull requests to `main` run formatting, type checking, regression tests, release-validation tests, offline retrieval evaluation, a dependency audit and a production build. Verified packages and evaluation reports are retained as workflow artifacts for 14 days. CI makes no paid JEV requests and needs no API Key.
+
+Pushing a `vMAJOR.MINOR.PATCH` tag reruns those checks and publishes a GitHub Release with `gh`: the Chrome ZIP, `INSTALL.txt` and `SHA256SUMS`. Publication requires matching tag/package/manifest versions, current changelog notes and byte-for-byte agreement between the ZIP and fresh build. It does not publish to the Chrome Web Store. See [release procedures](docs/DEVELOPMENT.md#github-actions-and-releases) and the [changelog](CHANGELOG.md).
 
 ## Limits and data handling
 

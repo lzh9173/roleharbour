@@ -14,8 +14,10 @@
     "catalog:import": "node --experimental-strip-types scripts/import-occupations.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "postinstall": "wxt prepare",
-    "format": "prettier --write src entrypoints data scripts tests evaluation public docs README.md *.ts *.json *.yaml",
-    "format:check": "prettier --check src entrypoints data scripts tests evaluation public docs README.md *.ts *.json *.yaml"
+    "format": "prettier --write src entrypoints data scripts tests evaluation public docs README.md CHANGELOG.md .github *.ts *.json *.yaml",
+    "format:check": "prettier --check src entrypoints data scripts tests evaluation public docs README.md CHANGELOG.md .github *.ts *.json *.yaml",
+    "test:release": "python3 -m unittest discover -s tests -p '*_test.py'",
+    "release:prepare": "python3 scripts/prepare-release.py"
   },
   "dependencies": {
     "idb": "^8.0.3",
