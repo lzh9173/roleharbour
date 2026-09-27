@@ -19,16 +19,12 @@ export function BasicOverview({ body }: { body: string }) {
     { title: t('page.basicExperience'), items: quotes.experience },
     { title: t('page.basicRequirements'), items: quotes.requirements },
   ];
+  if (groups.every((group) => group.items.length === 0)) return null;
   return (
     <section
       className="basic-overview mt-4 text-[13px] leading-[1.6]"
-      aria-label={t('page.basicOverview')}
+      aria-label={t('page.basicRequirements')}
     >
-      <h3 className="font-bold text-rh-text">{t('page.basicOverview')}</h3>
-      <p className="mt-1 text-[12px] text-rh-muted">{t('page.basicNotice')}</p>
-      {groups.every((group) => group.items.length === 0) && (
-        <p className="mt-3 text-rh-muted">{t('page.basicEmpty')}</p>
-      )}
       {groups.map(
         ({ title, items }) =>
           items.length > 0 && (

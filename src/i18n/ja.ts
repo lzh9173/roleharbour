@@ -5,12 +5,8 @@ export const jaMessages = {
   'settings.basicAvailable':
     '追加設定なしで、応募条件や必要な経験、雇用主リストの情報を確認できます。求人やビザに関する記載を AI に解説してもらうには、下に TypeSafe Key を入力してください。',
   'page.basicTruncated': '一部の内容は抽出上限を超えています。求人全文をご確認ください。',
-  'page.basicEmpty': '明確な要件の原文を抽出できませんでした。求人全文をご確認ください。',
   'page.basicRequirements': '要件に関する原文',
   'page.basicExperience': '経験に関する原文',
-  'page.basicNotice':
-    'キーワードで選んだ原文には漏れや無関係な文が含まれる場合があります。求人全文をご確認ください。',
-  'page.basicOverview': '基本概要 · ローカル抽出',
   'page.retrying': '分析を再試行しています（{attempt}/2）…',
   'errors.jev.retryFailed':
     '自動再試行後も分析を完了できませんでした。しばらくしてから再度お試しください。',
@@ -136,7 +132,7 @@ export const jaMessages = {
   'page.analysisIncomplete': '分析が完了しませんでした。もう一度お試しください。',
   'page.retryUsage': '再分析にはご自身の TypeSafe API クレジットを使用します',
   'page.retry': '再試行',
-  'page.connectPrompt': '基本機能はすぐに利用できます。JEV を設定すると AI 分析を追加できます。',
+  'page.connectPrompt': 'JEV を設定すると AI 分析を追加できます。',
   'page.configureAi': 'AI を設定',
   'page.automaticAnalysis': '求人の応募要件を自動分析',
   'page.automaticConsent':

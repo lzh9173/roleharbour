@@ -165,7 +165,7 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
       await mount();
       await flush(2_000);
       const panel = shadow('detail');
-      expect(panel.textContent).toContain(t('page.basicOverview'));
+      expect(panel.textContent).toContain(t('page.connectPrompt'));
       expect(panel.textContent).toContain('Python skills required.');
       expect(panel.textContent).toContain('Three years of engineering experience required.');
       expect(button(panel, t('page.configureAi')).disabled).toBe(false);
@@ -190,6 +190,8 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
 
   it('retains basic excerpts when an optional AI request fails', async () => {
     preferences.autoAnalyze = true;
+    document.querySelector('[data-automation="jobAdDetails"]')!.textContent =
+      'Must have Python skills and experience developing production software.';
     send.mockImplementation(async (message) =>
       message.type === 'page:analyze'
         ? { ok: false, error: 'Synthetic provider unavailable' }
@@ -197,7 +199,9 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     );
     await mount();
     await flush();
-    expect(shadow('detail').querySelector('.basic-overview')).not.toBeNull();
+    expect(shadow('detail').querySelector('.basic-overview')?.textContent).toContain(
+      'Must have Python skills and experience developing production software.',
+    );
     expect(shadow('detail').textContent).toContain('Synthetic provider unavailable');
     expect(calls('page:analyze')).toHaveLength(1);
   });
