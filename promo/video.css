@@ -1,0 +1,490 @@
+/* Promo video stage. Colours and panel metrics follow src/styles/tailwind.css and the
+   in-page components (InlinePanel, PrepChecklist, EmployerBadge) so the UI shots match
+   the extension. Nothing here animates by itself: video.js sets every moving style. */
+:root {
+  --navy: #051a49;
+  --amber: #f5b841;
+  --sky: #cfe8ff;
+  --bg: #f7f8fa;
+  --rh-page: #f3f5f7;
+  --rh-text: #2e3849;
+  --rh-muted: #5a6881;
+  --rh-border: #e4e8ed;
+  --rh-border-strong: #8995a9;
+  --rh-surface: #f3f5f7;
+  --rh-link: #1e47a9;
+  --rh-info-bg: #e4f1fd;
+  --rh-positive: #216e45;
+  --rh-positive-bg: #edf7f0;
+  --rh-positive-border: #a8cdb6;
+  --rh-warning: #8a4b16;
+  --rh-warning-bg: #fff7e6;
+  --rh-warning-border: #e8c890;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+#stage {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: Inter, sans-serif;
+  color: var(--navy);
+  transform-origin: 50% 50%;
+}
+
+.shot {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+
+.abs {
+  position: absolute;
+}
+
+/* Kinetic type: an inner span slides inside a clipping line. */
+.line {
+  display: block;
+  overflow: hidden;
+  padding: 0.04em 0.06em 0.12em;
+  margin: -0.04em -0.06em -0.12em;
+}
+.line > span {
+  display: inline-block;
+  will-change: transform;
+}
+.letter {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+.letter > span {
+  display: inline-block;
+}
+
+.display {
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+  white-space: nowrap;
+}
+.dot {
+  color: var(--amber);
+}
+.muted {
+  color: var(--rh-muted);
+}
+
+.mark {
+  background-image: linear-gradient(var(--amber), var(--amber));
+  background-repeat: no-repeat;
+  background-position: 0 86%;
+  background-size: 0% 46%;
+}
+
+.sticker {
+  filter: drop-shadow(4px 0 0 #fff) drop-shadow(-4px 0 0 #fff) drop-shadow(0 4px 0 #fff)
+    drop-shadow(0 -4px 0 #fff) drop-shadow(0 14px 22px rgba(5, 26, 73, 0.18));
+}
+
+.bubble {
+  background: #fff;
+  border-radius: 999px;
+  padding: 18px 30px;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  box-shadow: 0 14px 30px rgba(5, 26, 73, 0.12);
+  white-space: nowrap;
+}
+
+/* Shot 2: fragments of a long advert. */
+.wall {
+  font-size: 30px;
+  line-height: 1.55;
+  color: #a9b4c4;
+  width: 1700px;
+}
+.frag {
+  font-weight: 500;
+  color: #8995a9;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+.frag b {
+  color: var(--navy);
+  font-weight: 900;
+}
+
+/* Browser window around the generic job page (no real site's branding). */
+.browser {
+  width: 1140px;
+  height: 800px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow:
+    0 50px 90px rgba(5, 26, 73, 0.16),
+    0 0 0 1px rgba(5, 26, 73, 0.06);
+  overflow: hidden;
+}
+.browser-bar {
+  height: 54px;
+  background: #eef1f5;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 22px;
+}
+.browser-dots {
+  display: flex;
+  gap: 9px;
+}
+.browser-dots i {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #d5dbe3;
+}
+.browser-tab {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rh-text);
+  background: #fff;
+  border-radius: 9px 9px 0 0;
+  padding: 10px 18px;
+  margin-top: 12px;
+  align-self: stretch;
+}
+.browser-address {
+  flex: 1;
+  height: 30px;
+  border-radius: 15px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+}
+.browser-address i {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: #e4e8ed;
+}
+.page {
+  width: 786px;
+  padding: 24px;
+  transform-origin: 0 0;
+  transform: scale(1.45);
+}
+.job-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: #1c2330;
+  letter-spacing: -0.01em;
+}
+.job-meta {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: var(--rh-muted);
+}
+.job-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--rh-text);
+  white-space: pre-line;
+}
+
+/* RoleHarbour panel, as rendered by src/inpage/InlinePanel.tsx. */
+.rh-panel {
+  width: 738px;
+  margin: 20px 0;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--rh-border);
+  background: #fff;
+  box-shadow: 0 5px 22px #051a4908;
+  color: var(--rh-text);
+}
+.rh-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--rh-border);
+  padding: 12px 20px;
+}
+.rh-title {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 700;
+  color: var(--navy);
+}
+.rh-title span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--rh-muted);
+}
+.rh-actions {
+  display: flex;
+  gap: 4px;
+}
+.rh-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--rh-muted);
+}
+.rh-body {
+  display: grid;
+  gap: 20px;
+  padding: 16px 20px;
+}
+.rh-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.rh-fact {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  border-radius: 10px;
+  background: var(--rh-surface);
+  padding: 9px 12px;
+}
+.rh-fact dt {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--rh-muted);
+}
+.rh-fact dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--rh-text);
+  overflow-wrap: anywhere;
+}
+.rh-quiet-value {
+  font-weight: 400;
+  color: var(--rh-muted);
+}
+.rh-quote {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--rh-muted);
+}
+.rh-quote::before {
+  content: '“';
+}
+.rh-quote::after {
+  content: '”';
+}
+.pill {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 6px;
+  border: 1px solid;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.pill.positive {
+  border-color: var(--rh-positive-border);
+  background: var(--rh-positive-bg);
+  color: var(--rh-positive);
+}
+.pill.warning {
+  border-color: var(--rh-warning-border);
+  background: var(--rh-warning-bg);
+  color: var(--rh-warning);
+}
+.pill.neutral {
+  border-color: #8995a973;
+  background: #fff;
+  color: var(--rh-muted);
+}
+
+/* Preparation checklist, as rendered by src/inpage/PrepChecklist.tsx. */
+.rh-checklist {
+  display: grid;
+  gap: 20px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--rh-text);
+}
+.rh-section {
+  display: grid;
+  gap: 10px;
+}
+.rh-section h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.rh-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.28fr) minmax(0, 1fr);
+  align-items: start;
+  column-gap: 12px;
+}
+.rh-row-label {
+  padding-top: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--rh-muted);
+}
+.rh-chips {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.chip.skill {
+  background: var(--rh-info-bg);
+  font-weight: 500;
+  color: var(--rh-link);
+}
+.chip.qualification {
+  background: var(--rh-positive-bg);
+  font-weight: 500;
+  color: var(--rh-positive);
+}
+.chip.personal {
+  background: var(--rh-surface);
+  color: var(--rh-text);
+}
+.rh-material {
+  border-radius: 8px;
+  border: 1px solid var(--rh-warning-border);
+  background: var(--rh-warning-bg);
+  padding: 8px 12px;
+}
+.rh-material b {
+  display: block;
+  font-weight: 600;
+  color: var(--rh-warning);
+}
+.rh-material span {
+  font-size: 12px;
+  color: var(--rh-text);
+}
+.rh-footer {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--rh-border);
+  padding-top: 8px;
+  font-size: 12px;
+  color: var(--rh-muted);
+}
+.rh-footer p {
+  margin: 0;
+  font-size: 11px;
+}
+
+/* Job list cards with the RoleHarbour card label (src/inpage/CardLabel.tsx). */
+.card {
+  width: 575px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--rh-border);
+  padding: 18px 20px 16px;
+  box-shadow: 0 12px 30px rgba(5, 26, 73, 0.08);
+  transform-origin: 0 0;
+}
+.card h4 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1c2330;
+}
+.card .meta {
+  margin: 3px 0 0;
+  font-size: 14px;
+  color: var(--rh-muted);
+}
+.card .teaser {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--rh-text);
+}
+.card-label {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--rh-border);
+  padding-top: 13px;
+}
+.card-brand {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  white-space: nowrap;
+  color: var(--navy);
+}
+.card-employer {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.card-employer > span:first-child {
+  font-size: 11px;
+  color: var(--rh-muted);
+}
+.card-action {
+  margin-left: auto;
+  border-radius: 7px;
+  background: var(--rh-info-bg);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--rh-link);
+}
+
+.cursor {
+  width: 46px;
+  height: 46px;
+}

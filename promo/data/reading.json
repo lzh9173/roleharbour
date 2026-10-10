@@ -1,0 +1,172 @@
+{
+  "_note": "Output of localAnalysis() for promo/data/job.json. Do not edit by hand.",
+  "reading": {
+    "occupationTitle": "Developer Programmer",
+    "visa": {
+      "sponsorship": {
+        "choice": "supported",
+        "evidence": [
+          {
+            "id": "visa_701",
+            "text": "We are an accredited employer and can support an Accredited Employer Work Visa for the right candidate.",
+            "start": 701,
+            "end": 804
+          }
+        ]
+      },
+      "workRights": {
+        "choice": "not_mentioned",
+        "evidence": []
+      },
+      "residency": {
+        "choice": "not_mentioned",
+        "evidence": []
+      }
+    },
+    "prep": {
+      "entries": [
+        {
+          "kind": "knowledge",
+          "level": "required",
+          "terms": ["Software development"],
+          "source": {
+            "id": "requirement_1",
+            "text": "3+ years of commercial software development experience",
+            "start": 487,
+            "end": 541
+          }
+        },
+        {
+          "kind": "language",
+          "level": "required",
+          "terms": ["TypeScript"],
+          "source": {
+            "id": "requirement_2",
+            "text": "Strong skills in TypeScript, React, Node.js, AWS and Git",
+            "start": 544,
+            "end": 600
+          }
+        },
+        {
+          "kind": "tool",
+          "level": "required",
+          "terms": ["React"],
+          "source": {
+            "id": "requirement_2",
+            "text": "Strong skills in TypeScript, React, Node.js, AWS and Git",
+            "start": 544,
+            "end": 600
+          }
+        },
+        {
+          "kind": "tool",
+          "level": "required",
+          "terms": ["Node.js"],
+          "source": {
+            "id": "requirement_2",
+            "text": "Strong skills in TypeScript, React, Node.js, AWS and Git",
+            "start": 544,
+            "end": 600
+          }
+        },
+        {
+          "kind": "tool",
+          "level": "required",
+          "terms": ["AWS"],
+          "source": {
+            "id": "requirement_2",
+            "text": "Strong skills in TypeScript, React, Node.js, AWS and Git",
+            "start": 544,
+            "end": 600
+          }
+        },
+        {
+          "kind": "tool",
+          "level": "required",
+          "terms": ["Git"],
+          "source": {
+            "id": "requirement_2",
+            "text": "Strong skills in TypeScript, React, Node.js, AWS and Git",
+            "start": 544,
+            "end": 600
+          }
+        },
+        {
+          "kind": "personal",
+          "level": "required",
+          "terms": ["Communication"],
+          "source": {
+            "id": "requirement_3",
+            "text": "Good communication skills and a collaborative approach",
+            "start": 603,
+            "end": 657
+          }
+        },
+        {
+          "kind": "personal",
+          "level": "required",
+          "terms": ["Teamwork"],
+          "source": {
+            "id": "requirement_3",
+            "text": "Good communication skills and a collaborative approach",
+            "start": 603,
+            "end": 657
+          }
+        },
+        {
+          "kind": "tool",
+          "level": "preferred",
+          "terms": ["PostgreSQL"],
+          "source": {
+            "id": "requirement_4",
+            "text": "PostgreSQL",
+            "start": 675,
+            "end": 685
+          }
+        },
+        {
+          "kind": "tool",
+          "level": "preferred",
+          "terms": ["Docker"],
+          "source": {
+            "id": "requirement_5",
+            "text": "Docker",
+            "start": 688,
+            "end": 694
+          }
+        }
+      ],
+      "materials": [
+        {
+          "key": "cover_letter",
+          "level": "required",
+          "label": "Cover letter",
+          "source": {
+            "id": "requirement_8",
+            "text": "Please send your CV and a cover letter telling us about a project you're proud of.",
+            "start": 819,
+            "end": 901
+          }
+        }
+      ],
+      "other": [],
+      "experience": [
+        {
+          "id": "requirement_1",
+          "text": "3+ years of commercial software development experience",
+          "start": 487,
+          "end": 541,
+          "minYears": 3,
+          "maxYears": null,
+          "level": "required"
+        }
+      ],
+      "estimate": null,
+      "truncated": false
+    }
+  },
+  "experience": {
+    "label": "At least 3 years",
+    "estimated": false
+  }
+}
