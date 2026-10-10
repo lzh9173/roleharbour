@@ -37,12 +37,12 @@ jobs:
         run: pnpm format:check
       - name: Check types
         run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
       - name: Run regression tests
         run: pnpm exec vitest run --maxWorkers=2
       - name: Test release validation
         run: pnpm test:release
-      - name: Evaluate offline retrieval
-        run: pnpm eval:jev
       - name: Audit dependencies
         run: pnpm audit --audit-level=high --registry=https://registry.npmjs.org
       - name: Build production ZIP
@@ -55,12 +55,4 @@ jobs:
           name: chrome-extension-${{ github.sha }}
           path: output/release-assets/
           if-no-files-found: error
-          retention-days: 14
-      - name: Store offline evaluation reports
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: offline-evaluation-${{ github.sha }}
-          path: output/jev-eval/
-          if-no-files-found: ignore
           retention-days: 14

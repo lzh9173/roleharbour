@@ -2,13 +2,15 @@ node_modules/
 .output/
 .wxt/
 .env*
-!.env.example
 .DS_Store
 output/
 .playwright-cli/
 .cache/
 *.tsbuildinfo
 release/chrome-extension/
+# Release ZIPs and checksums live on GitHub Releases, not in history.
+release/*.zip
+release/SHA256SUMS
 release/roleharbour-*-chrome/
 # Local user backups are not source fixtures.
 /roleharbour-*.json
