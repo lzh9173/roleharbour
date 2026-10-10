@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="RoleHarbour lighthouse sticker">
+  <defs>
+    <clipPath id="inner">
+      <circle cx="64" cy="62" r="49"/>
+    </clipPath>
+  </defs>
+  <circle cx="64" cy="66.5" r="56" fill="#051a49" opacity=".16"/>
+  <circle cx="64" cy="62" r="56" fill="#fff"/>
+  <circle cx="64" cy="62" r="49" fill="#BFE0FF"/>
+  <g clip-path="url(#inner)">
+    <path d="M73 45 122 27V65ZM55 45 6 27V65Z" fill="#FFE9B0"/>
+    <path d="M8 93c9-6 18-6 27 0s18 6 27 0 18-6 27 0 18 6 27 0 18-6 27 0V130H8Z" fill="#5DB7E8"/>
+    <path d="M8 105c9-5 18-5 27 0s18 5 27 0 18-5 27 0 18 5 27 0 18-5 27 0V130H8Z" fill="#3B95D6"/>
+    <path d="M8 93c9-6 18-6 27 0s18 6 27 0 18-6 27 0 18 6 27 0 18-6 27 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <circle cx="64" cy="62" r="49" fill="none" stroke="#051a49" stroke-width="3.5"/>
+  <ellipse cx="64" cy="96" rx="16" ry="4" fill="#051a49"/>
+  <g stroke="#051a49" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M54 95h20l-4-39H58z" fill="#fff"/>
+    <path d="M56.6 67h14.8l.7 7.5H55.9zM55.3 81h17.4l.7 7.5H54.6z" fill="#F28C82"/>
+    <rect x="52.5" y="51.5" width="23" height="5" rx="2" fill="#051a49"/>
+    <rect x="57" y="39.5" width="14" height="12" rx="2" fill="#F5B841"/>
+    <path d="M53 40.5h22L64 28.5z" fill="#F28C82"/>
+  </g>
+  <circle cx="64" cy="26.5" r="2.2" fill="#051a49"/>
+  <path d="M95 17c1 6 3 8 9 9-6 1-8 3-9 9-1-6-3-8-9-9 6-1 8-3 9-9zM31 23c.7 4 2 5.3 6 6-4 .7-5.3 2-6 6-.7-4-2-5.3-6-6 4-.7 5.3-2 6-6zM101 66c.6 3.4 1.7 4.5 5 5-3.3.6-4.4 1.6-5 5-.6-3.4-1.7-4.4-5-5 3.3-.5 4.4-1.6 5-5z" fill="#F5B841" stroke="#051a49" stroke-width="1.6" stroke-linejoin="round"/>
+</svg>
