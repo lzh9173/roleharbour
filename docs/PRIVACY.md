@@ -1,58 +1,45 @@
 # Privacy notice
 
-Version 0.21.1 · 2026-09-27
+Version 0.22.0 · updated 2026-10-10 for on-device analysis
 
-RoleHarbour offers local job excerpts and employer matching without a Key. TypeSafe JEV is an optional AI service. There is no RoleHarbour account, hosted server, analytics or shared credential.
+RoleHarbour runs entirely on your device. Job content is read, analysed and displayed locally and is never sent to any server. There is no RoleHarbour account, hosted server, analytics, AI service or credential.
 
 ## Information read from SEEK
 
 The extension reads supported, visible job cards, descriptions and job dialogs on `https://nz.seek.com` and `https://www.seek.co.nz`. It reads job title, employer, location, description and job identity. It excludes private profiles and application pages, does not read cookies, and does not crawl unopened jobs or call private SEEK APIs.
 
-Basic requirement and experience excerpts are computed in the page. They do not require credentials or make AI requests, and are not saved as analysis records or included in backups. Language translations are bundled; no translation service is used.
+The page passes the title and description to the extension's own service worker, which computes the occupation reference, experience, visa wording and preparation checklist locally. Common email addresses and New Zealand phone numbers are redacted before analysis. Results stay in memory for the open job and are not saved. Language translations are bundled; no translation service is used.
 
-## Optional TypeSafe requests
+## Network requests
 
-Before a model request, users must save their own Key, accept data transfer and grant access to the optional API domain. Manual analysis requires the page notice to be accepted; automatic analysis is a separate opt-in and is disabled by default. Saving a Key makes no test request.
-
-Requests go directly to `https://api.typesafe.ai/v1/systemone`. They contain the job title, processed description segments, up to eight occupation candidate descriptions and analysis questions. Saved job collections and employer databases are not sent. Common email addresses and New Zealand phone numbers are redacted, but this is not a guarantee of complete anonymisation.
-
-Requests use the user's TypeSafe credits and are subject to TypeSafe's data policies. Eligible results are cached for 30 days. A received choice/probability mismatch can trigger two validation retries; other failures and interrupted requests are not automatically resubmitted. Failed requests may still cost credits. Cancelling cannot guarantee the provider has stopped processing or charging. Saved token counts cover the successful response, not necessarily all attempts.
-
-## Employer-list downloads
-
-The background worker downloads the public [NZAEI dataset](https://nzaei.zemo.bio/open-data/) from `https://data.nzaei.zemo.bio`. It checks on first use, every seven days, or on manual refresh. Company names, job text and Keys are not included in these requests. The dataset host can receive ordinary connection information such as an IP address.
+The only outbound requests go to `https://data.nzaei.zemo.bio`, which publishes the public [NZAEI dataset](https://nzaei.zemo.bio/open-data/). The extension's content security policy allows no other connection. The background worker checks the dataset on first use, every seven days, or on manual refresh. Requests contain no job text, company names or other user data; the host can receive ordinary connection information such as an IP address.
 
 A changed snapshot must pass date, schema, size, row-count and checksum checks before replacement. A failed update preserves the previous local list. Matching and review-candidate generation happen locally. The dataset is a dated independent observation, not the complete live INZ register; a match does not establish current accreditation or job sponsorship.
 
 ## Local storage
 
-| Data           | Storage and retention                                                                                                                                                                                                                   |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| JEV Key        | `chrome.storage.session` by default; `chrome.storage.local` when remembered. Both are restricted to trusted extension contexts. This is not an encrypted vault.                                                                         |
-| Preferences    | Browser-local language, AI consent, auto-analysis setting and migration marker. No Chrome Sync.                                                                                                                                         |
-| Jobs and tasks | IndexedDB `seek-filter`. Successful results include source evidence. The current page adapter does not retain full descriptions. Unbookmarked records and task history expire after 30 days; historical bookmarks remain until deleted. |
-| Employer list  | IndexedDB `seek-filter-employers`, replaced after successful download or validated import.                                                                                                                                              |
-| Basic excerpts | Temporary page memory only.                                                                                                                                                                                                             |
+| Data              | Storage and retention                                                                        |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| Employer list     | IndexedDB `seek-filter-employers`, replaced after a successful download or validated import. |
+| Language setting  | `chrome.storage.local`, restricted to trusted extension contexts. No Chrome Sync.            |
+| Job panel results | Memory only, for the open job.                                                               |
+| Retired data      | Deleted on every worker start (see below).                                                   |
 
-Older records that explicitly retained full descriptions still contain them. Historical local/Codex/Qwen records can be exported or imported as validated backups, but do not enable retired engines. Migration from a non-JEV mode disables automatic analysis; existing JEV opt-ins remain unchanged.
+Earlier versions offered optional AI analysis and a saved-job archive. On every start the worker deletes their data: the `chrome.storage` keys `jevKey`, `jevConsent`, `autoAnalyze`, `analysisProvider`, `codexConsent` and `qwenEnabled` (local and session), and the IndexedDB database `seek-filter` with its saved jobs and tasks. Saved jobs cannot be exported after upgrading. The employer list and language setting are kept.
 
-The extension no longer uses historical résumé or per-company query-cache databases and does not proactively delete them. Previously installed external connectors and browser model caches are also left untouched. The known synthetic product demo is removed by its fixed identity; genuine or ambiguous records are preserved.
+The extension does not use historical résumé or per-company query-cache databases and does not proactively delete them. Previously installed external connectors and browser model caches are also left untouched.
 
 ## Permissions
 
-Required permissions are `storage`, `sidePanel`, `alarms`, the two supported SEEK domains and the NZAEI download domain. TypeSafe is an optional host permission. The extension has no native-messaging, offscreen or model-download permission and grants no WebAssembly execution permission.
+Required permissions are `storage`, `sidePanel`, `alarms`, the two supported SEEK domains and the NZAEI download domain. There are no optional host permissions. The extension has no native-messaging, offscreen or model-download permission and grants no WebAssembly execution permission.
 
-Background tab queries are restricted to the supported SEEK domains. Content messages expose no Key or arbitrary stored collection. External links open when selected by the user.
+Background tab queries are restricted to the supported SEEK domains. The worker only answers language, employer-match, local-analysis and open-settings requests from public SEEK pages; opening settings needs a real click. External links open when selected by the user.
 
 ## Backups and deletion
 
-Settings provides separate job and employer-list backups. Files are generated and read locally, without upload. Job backups may contain source excerpts and full descriptions retained by earlier versions. API Keys are excluded.
+Settings can export and import the employer list. Files are generated and read locally, without upload. Employer backups are limited to 12 MiB; a validated import replaces the current list.
 
-- Job backups: up to 1,000 records and 5 MB; validated before an atomic import.
-- Employer backups: up to 12 MiB; a validated import replaces the current list.
-- Clear Key removes credentials, consent and automatic-analysis opt-in.
-- Clear job records removes saved jobs and tasks.
-- Uninstalling removes extension-local data. Reloading or upgrading in the same unpacked directory normally preserves it.
+Uninstalling removes extension-local data. Reloading or upgrading in the same unpacked directory preserves the employer list and language setting.
 
 ## Distribution
 
