@@ -82,7 +82,8 @@ Store temporary screenshots and reports under ignored `output/`. Do not add brow
 - Occupation title synonyms: `pnpm catalog:synonyms` (O\*NET 31.0 titles linked through ISCO-08), writing `data/occupations/onet-synonyms.json`.
 - Software and tools: `pnpm catalog:software` (`scripts/import-software-skills.ts`) downloads the pinned O\*NET 31.0 Software Skills CSV into `.cache/onet-31.0`, checks its SHA-256 and writes `data/skills/onet-software.json`. A local word list (`WORD_LIST`, default `/usr/share/dict/words`) decides which one-word names stay case-sensitive. Run Prettier on generated JSON afterwards.
 - Attribution: keep `public/occupation-sources.txt` aligned with every bundled O\*NET or ABS source.
-- Icons: `node --experimental-strip-types scripts/icons.ts`. This writes the four PNG sizes under `public/icon/` using `sharp`.
+- Icons: `node --experimental-strip-types scripts/icons.ts`. This composes Haru's face (`brand/haru/face-smile.png`) on a sky tile and writes the four PNG sizes under `public/icon/` using `sharp`.
+- Logo, banner and promo video: see [`brand/README.md`](../brand/README.md). The video renders into `brand/promo/` with `node promo/render.mjs` after `python3 -I promo/music.py output/promo/music.wav`.
 - Chrome metadata: maintain all five `public/_locales/*/messages.json` files alongside the UI translations.
 - Formatting: `pnpm format` / `pnpm format:check` cover application code, tests, data, scripts, public metadata and Markdown documentation.
 
