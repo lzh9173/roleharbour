@@ -115,6 +115,78 @@ describe('full occupation catalogue retrieval', () => {
     expect(results.map(({ code }) => code)).toContain('351311');
   });
 
+  it('matches default (General) units, NZ names and plural titles', () => {
+    expect(
+      retrieveOccupations(
+        'Electrician',
+        'Install and test wiring, switchboards and lighting in homes and offices.',
+      )[0]?.code,
+    ).toBe('341111');
+    expect(
+      retrieveOccupations(
+        'Receptionist / Administrator',
+        'Greet visitors at the front desk, answer phones and manage room bookings.',
+      ).map(({ code }) => code),
+    ).toContain('542111');
+    expect(
+      retrieveOccupations('Welder', 'Weld steel structures and read fabrication drawings.').map(
+        ({ code }) => code,
+      ),
+    ).toContain('322313');
+    expect(
+      retrieveOccupations('Electricians wanted', 'Residential wiring and switchboard installs.')[0]
+        ?.code,
+    ).toBe('341111');
+  });
+
+  it('normalises spelling variants and standard job-ad abbreviations', () => {
+    expect(
+      retrieveOccupations(
+        'HR Advisor',
+        'Advise managers on employment relations, policies and recruitment.',
+      ).map(({ code }) => code),
+    ).toContain('223111');
+  });
+
+  it('ignores occupations named only as excluded work', () => {
+    const codes = retrieveOccupations(
+      'Learning Facilitator',
+      'Teach physics to secondary school pupils and mark assessments. This is not an early childhood or adult training role.',
+    ).map(({ code }) => code);
+    expect(codes[0]).toBe('241411');
+    expect(codes).not.toContain('241111');
+    // "not only" and "not just" are emphasis, not an exclusion.
+    expect(
+      retrieveOccupations(
+        'Team member',
+        'The chef will not only prepare and cook meals in a restaurant kitchen but also plan menus and supervise food preparation.',
+      ).map(({ code }) => code),
+    ).toContain('351311');
+    expect(
+      retrieveOccupations(
+        'Team member',
+        'Not just a job, a career as a chef: prepare and cook meals in a restaurant kitchen, plan menus and supervise food preparation.',
+      ).map(({ code }) => code),
+    ).toContain('351311');
+  });
+
+  it('uses a distinctive title word only after better-supported candidates', () => {
+    expect(
+      retrieveOccupations(
+        'Payroll Administrator',
+        'Process fortnightly payroll, maintain employee records and calculate holiday pay.',
+      ).map(({ code }) => code),
+    ).toContain('551311');
+    const care = retrieveOccupations(
+      'Caregiver - Rest Home',
+      'Provide personal cares to elderly residents in a rest home, including showering and dressing.',
+    ).map(({ code }) => code);
+    const carer = care.findIndex((code) => code === '423111' || code === '423313');
+    expect(carer).toBeGreaterThanOrEqual(0);
+    const unrelated = care.indexOf('821412');
+    expect(unrelated === -1 || unrelated > carer).toBe(true);
+  });
+
   it('abstains on missing, unknown or generic recruitment text', () => {
     expect(retrieveOccupations('', '')).toEqual([]);
     expect(retrieveOccupations('Xylazoom Qvaxp', 'Qvaxp xylazoom.')).toEqual([]);
@@ -131,17 +203,12 @@ describe('full occupation catalogue retrieval', () => {
     ).toBe(false);
   });
 
-  it('bounds model excerpts and counts without changing the complete catalogue', () => {
+  it('returns catalogue records unchanged, bounds counts and reports how the title matched', () => {
     const before = occupations.map(({ description }) => description);
     const longRecord = occupations.find(({ description }) => description.length > 500)!;
-    expect(longRecord).toBeDefined();
-    const excerpt = retrieveOccupations(longRecord.title, '').find(
-      ({ id }) => id === longRecord.id,
-    )!;
-    expect(excerpt.description.length).toBeLessThanOrEqual(500);
-    expect(excerpt.description).toContain('not an official duties definition');
-    expect(excerpt.descriptionKind).toBe(longRecord.descriptionKind);
-    expect(longRecord.description.length).toBeGreaterThan(500);
+    const match = retrieveOccupations(longRecord.title, '').find(({ id }) => id === longRecord.id)!;
+    expect(match.description).toBe(longRecord.description);
+    expect(Math.floor(match.titleRank)).toBe(4);
     const results = retrieveOccupations(
       'Engineer',
       'Design software and hardware systems. Develop applications and administer network infrastructure.',
@@ -150,17 +217,153 @@ describe('full occupation catalogue retrieval', () => {
     expect(results.length).toBeGreaterThan(0);
     expect(results.length).toBeLessThanOrEqual(8);
     expect(
-      results.every(({ description }) => description.length > 0 && description.length <= 500),
-    ).toBe(true);
+      Math.floor(retrieveOccupations('Chef', 'Cook meals for a busy restaurant.', 1)[0]!.titleRank),
+    ).toBe(4);
     expect(
-      results.reduce(
-        (sum, candidate) => sum + candidate.title.length + candidate.description.length,
-        0,
+      retrieveOccupations('Team Member', 'Cook meals for a busy restaurant.', 8).every(
+        ({ titleRank }) => titleRank < 2,
       ),
-    ).toBeLessThanOrEqual(6_000);
+    ).toBe(true);
     expect(occupations.map(({ description }) => description)).toEqual(before);
     expect(retrieveOccupations('Chef', '', 0)).toEqual([]);
     expect(retrieveOccupations('Chef', '', Number.NaN)).toEqual([]);
     expect(retrieveOccupations('Chef', '', 1)).toHaveLength(1);
+  });
+});
+
+describe('everyday titles', () => {
+  it('recognises O*NET title synonyms of catalogue occupations', () => {
+    expect(
+      retrieveOccupations(
+        'Bartender',
+        'Pour beer and wine, mix cocktails and keep the bar clean during busy weekend shifts.',
+      )[0]?.code,
+    ).toBe('431111');
+    expect(
+      retrieveOccupations('Head Chef', 'Lead the kitchen team and design seasonal menus.')[0]?.code,
+    ).toBe('351311');
+  });
+
+  it('uses synonyms as title evidence only, not when the body mentions other roles', () => {
+    const codes = retrieveOccupations(
+      'Warehouse Worker',
+      'Pick and pack orders. During events you will support our bartenders and mixologists with stock.',
+    ).map(({ code }) => code);
+    expect(codes).not.toContain('431111');
+  });
+
+  it('splits "X or Y" catalogue names into both everyday titles', () => {
+    expect(
+      retrieveOccupations(
+        'Call Centre Operator',
+        'Answer inbound customer calls, resolve billing questions and log each call.',
+      )[0]?.code,
+    ).toBe('541112');
+    expect(
+      retrieveOccupations(
+        'Aged Carer',
+        'Support elderly residents with showering, dressing and meals in our rest home.',
+      )[0]?.code,
+    ).toBe('423111');
+  });
+});
+
+describe('advertised title wording', () => {
+  const top = (title: string, body = '') => retrieveOccupations(title, body)[0]?.code;
+  const codes = (title: string, body = '') =>
+    retrieveOccupations(title, body).map(({ code }) => code);
+
+  it('ignores urgency, seniority, schedule and place words around the role', () => {
+    expect(top('Diesel Mechanic Wanted – Immediate Start, Hamilton')).toBe('321212');
+    expect(top('Barista (Part Time) – Wellington CBD')).toBe('431112');
+    expect(top('Senior Accountant – Fixed Term')).toBe('221111');
+    expect(retrieveOccupations('Wanted – Immediate Start', '')).toEqual([]);
+  });
+
+  it('ranks the advertised role above the person or place it serves', () => {
+    const assistant = codes(
+      'Personal Assistant to the Managing Director',
+      'Manage the diary, prepare board papers and coordinate travel for the managing director.',
+    );
+    expect(assistant[0]).toBe('521111');
+    expect(assistant.indexOf('111111')).not.toBe(0);
+    expect(top('PA to our CFO')).toBe('521111');
+  });
+
+  it('reads words after to, for, at, with or in as context rather than the role', () => {
+    // "builders" names who the labourer works for; the bare title "Builder" is a carpenter.
+    const labourer = codes('Labourer for builders in Taupō');
+    expect(labourer[0]).toBe('821111');
+    expect(labourer.indexOf('331212')).toBeGreaterThan(0);
+    expect(top('Chef for busy cafe in Ponsonby')).toBe('351311');
+  });
+
+  it('reads a qualifier after a dash as part of the role name', () => {
+    expect(top('Housekeeper – Motel')).toBe('811411');
+    expect(top('Manager – Sales')).toBe('131112');
+    expect(
+      top(
+        'Support Worker – Community Mental Health',
+        'Walk alongside tangata whaiora in the community and support their recovery goals.',
+      ),
+    ).toBe('411711');
+  });
+
+  it('prefers the longest matching title phrase and treats possessives as plurals', () => {
+    expect(top("Builder's Offsider")).toBe('821111');
+    expect(top('Plumbers Assistant')).toBe('821114');
+    expect(top("Plumber's Assistant")).toBe('821114');
+    expect(codes("Builder's Offsider").indexOf('331212')).not.toBe(0);
+  });
+
+  it('keeps both roles of a slash title', () => {
+    expect(codes('Gardener / Landscaper')).toEqual(expect.arrayContaining(['362211', '362213']));
+    expect(codes('Cook / Kitchen Hand')).toEqual(expect.arrayContaining(['351411', '851311']));
+  });
+
+  it('ranks a role named in the title above a name assembled from its qualifier', () => {
+    // "Interiors" qualifies the painting work; it does not make the role an Interior Decorator.
+    expect(top('Decorator / Brush Hand – Interiors')).toBe('332211');
+  });
+
+  it('matches names written with or without macrons and accents', () => {
+    expect(top('Kaiāwhina Kōhanga Reo')).toBe('422113');
+    expect(top('Kaiawhina Kohanga Reo')).toBe('422113');
+    expect(top('Café Manager')).toBe('141111');
+  });
+
+  it('needs a te reo or Māori cue in the title before ranking a Māori-medium unit first', () => {
+    const body =
+      'Plan play-based learning for children aged 3 to 5 at our kindergarten. We are a bicultural centre: te reo Māori and partnership with whānau are part of every day.';
+    expect(top('Teacher', body)).toBe('241111');
+    expect(top('Kaiako – Kōhanga Reo', body)).toBe('241112');
+  });
+
+  it('expands common job-ad abbreviations', () => {
+    expect(top('Auto Tech')).toBe('321211');
+    expect(top('Tyre Tech – Retail Store')).toBe('899415');
+    expect(top('Stock Agent Rep')).toBe('611112');
+    expect(top('Web Dev')).toBe('261212');
+    expect(top('Kindy Teacher')).toBe('241111');
+  });
+
+  it('matches informal "-ie" and "-y" spellings of the same title', () => {
+    expect(top('Posty')).toBe('561212');
+    expect(top('Forky')).toBe('721311');
+    expect(top('Kitchy')).toBe('851311');
+  });
+
+  it('uses common New Zealand bare trade titles', () => {
+    expect(top('Builder', 'Frame, clad and fit out new homes with our residential crew.')).toBe(
+      '331212',
+    );
+    expect(top('Tiler')).toBe('333411');
+    expect(
+      codes(
+        'Business Analyst',
+        'Gather requirements for our software systems, write user stories and support testing.',
+      )[0],
+    ).toBe('261111');
+    expect(codes('Business Analyst', '')).toContain('224711');
   });
 });

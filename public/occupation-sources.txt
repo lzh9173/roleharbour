@@ -8,3 +8,19 @@ https://www.abs.gov.au/website-privacy-copyright-and-disclaimer
 
 RoleHarbour adaptations: active six-digit occupations and official title index converted from XLSX to JSON; retired/operational codes excluded; title markers removed; New Zealand skill levels retained; names and hierarchy combined into directory context. This context is not an official duties definition. Additional local IT retrieval keywords are project-authored.
 Not endorsed by ABS or Stats NZ. This catalogue does not establish immigration eligibility.
+
+Everyday job-title synonyms
+This product includes information from O*NET 31.0 Database by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under the CC BY 4.0 license. O*NET® is a trademark of USDOL/ETA. RoleHarbour has modified all or some of this information. USDOL/ETA has not approved, endorsed, or tested these modifications.
+https://www.onetcenter.org/database.html
+https://www.onetcenter.org/crosswalks.html (ESCO to O*NET-SOC crosswalk, CC BY 4.0)
+Also uses the ANZSCO Version 1.3 correspondence to ISCO-08, Australian Bureau of Statistics and Stats NZ, CC BY 4.0.
+https://creativecommons.org/licenses/by/4.0/
+
+RoleHarbour adaptations: O*NET occupation, reported and lay titles linked to ANZSCO occupations through ISCO-08 and an exact official-name match; filtered for length, ambiguity and generic words. Synonyms are retrieval keywords matched against advertised titles only; they are not official ANZSCO titles.
+
+Application preparation checklist
+Software and tool names include information from the O*NET 31.0 Database (Software Skills) by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under the CC BY 4.0 license. O*NET® is a trademark of USDOL/ETA. RoleHarbour has modified all or some of this information. USDOL/ETA has not approved, endorsed, or tested these modifications.
+https://www.onetcenter.org/database.html
+https://creativecommons.org/licenses/by/4.0/
+
+RoleHarbour adaptations: workplace software examples kept when used across occupations or flagged hot/in demand; vendor prefixes and expanded names shortened to the forms ads use; generic words removed. Knowledge areas, personal qualities, programming languages, extra tools and application materials are project-authored. Checklist items are vocabulary matches in the ad's own requirement statements, not an assessment of any applicant.

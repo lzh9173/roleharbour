@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import catalogue from '../data/occupations/anzsco-v1.3.json';
+import onet from '../data/occupations/onet-synonyms.json';
 import { occupations, CATALOGUE_METADATA } from '../data/occupations';
+import { nzTitles } from '../data/occupations/nz-titles';
 
 describe('official ANZSCO v1.3 import integrity', () => {
   it('includes all active occupations across the eight major groups, without duplicates', () => {
@@ -56,6 +59,55 @@ describe('official ANZSCO v1.3 import integrity', () => {
       ['421112', 3],
     ] as const) {
       expect(occupations.find((occupation) => occupation.code === code)?.nzSkillLevel).toBe(level);
+    }
+  });
+});
+
+describe('O*NET title synonyms', () => {
+  it('maps only to active codes, never repeats an official name and keeps attribution', () => {
+    const active = new Map(occupations.map((occupation) => [occupation.code, occupation]));
+    const key = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const official = new Set(
+      occupations.flatMap(({ title, keywords }) => [title, ...keywords].map(key)),
+    );
+    const entries = Object.entries(onet.synonyms);
+    expect(entries.length).toBe(onet.metadata.occupationCount);
+    expect(entries.flatMap(([, titles]) => titles)).toHaveLength(onet.metadata.synonymCount);
+    for (const [code, titles] of entries) {
+      expect(active.has(code), code).toBe(true);
+      expect(new Set(titles).size).toBe(titles.length);
+      for (const title of titles) {
+        expect(title.trim()).toBe(title);
+        expect(title.length).toBeLessThanOrEqual(50);
+        expect(official.has(key(title)), title).toBe(false);
+      }
+    }
+    expect(onet.metadata.license).toBe('CC BY 4.0');
+    expect(onet.metadata.attribution).toContain('O*NET 31.0 Database');
+    expect(onet.metadata.attribution).toContain('has not approved, endorsed, or tested');
+    expect(Object.values(onet.metadata.sha256).every((hash) => /^[a-f0-9]{64}$/.test(hash))).toBe(
+      true,
+    );
+  });
+
+  it('carries the O*NET attribution into the distributed extension', () => {
+    const notice = readFileSync('public/occupation-sources.txt', 'utf8');
+    expect(notice).toContain('O*NET 31.0 Database');
+    expect(notice).toContain('O*NET® is a trademark of USDOL/ETA');
+  });
+});
+
+describe('project-authored NZ titles', () => {
+  it('maps only to active codes with unique, trimmed lower-case phrases', () => {
+    const active = new Set(occupations.map(({ code }) => code));
+    for (const [code, titles] of Object.entries(nzTitles)) {
+      expect(active.has(code), code).toBe(true);
+      expect(titles.length, code).toBeGreaterThan(0);
+      expect(new Set(titles).size, code).toBe(titles.length);
+      for (const title of titles) {
+        expect(title, code).toBe(title.trim().toLowerCase());
+        expect(title.length, code).toBeGreaterThan(1);
+      }
     }
   });
 });
