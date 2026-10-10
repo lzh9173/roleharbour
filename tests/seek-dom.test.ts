@@ -1,16 +1,15 @@
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  canonicalSeekJobUrl,
-  findSeekCards,
-  findSeekDetailAnchor,
-  isSeekPublicPage,
-  readSeekDetail,
-} from '../src/inpage/seek';
+import { findSeekCards, readSeekDetailAt } from '../src/inpage/seek';
+import { canonicalSeekJobUrl, isSeekPublicPage } from '../src/core/seek-url';
 import { isSeekPublicSender } from '../src/core/page-messages';
 
 const description =
   'Design and maintain software systems, review application changes and diagnose production incidents with the engineering team.';
+/** Only the draft; tests that need the description element use readSeekDetailAt directly. */
+function readSeekDetail(document: Document, expectedJobId?: string) {
+  return readSeekDetailAt(document, expectedJobId)?.draft ?? null;
+}
 function page(html: string, url = 'https://nz.seek.com/developer-jobs'): Document {
   return new JSDOM(html, { url }).window.document;
 }
@@ -89,29 +88,22 @@ describe('visible SEEK cards', () => {
     const cards = findSeekCards(doc);
     expect(cards).toHaveLength(1);
     expect(cards[0]).toMatchObject({
-      jobId: '12340001',
       url: 'https://nz.seek.com/job/12340001',
       title: 'Platform Engineer',
       employer: 'Example Ltd',
-      location: '',
     });
     expect(cards[0]?.element.id).toBe('actual-card');
   });
 
-  it('binds title, employer and location to each card and deduplicates links', () => {
+  it('binds title and employer to each card and deduplicates links', () => {
     const doc =
       page(`<article data-testid="job-card"><h3><a data-automation="jobTitle" href="/job/11">Developer</a></h3><a data-automation="jobTitle" href="/job/11?ref=again">Developer</a><span data-automation="jobCompany">First Ltd</span><span data-automation="jobLocation">Auckland</span></article>
       <article><h2><a href="/job/22">Tester</a></h2><span data-automation="jobAdvertiser">Second Ltd</span></article>`);
     expect(
-      findSeekCards(doc).map(({ jobId, title, employer, location }) => ({
-        jobId,
-        title,
-        employer,
-        location,
-      })),
+      findSeekCards(doc).map(({ url, title, employer }) => ({ url, title, employer })),
     ).toEqual([
-      { jobId: '11', title: 'Developer', employer: 'First Ltd', location: 'Auckland' },
-      { jobId: '22', title: 'Tester', employer: 'Second Ltd', location: '' },
+      { url: 'https://nz.seek.com/job/11', title: 'Developer', employer: 'First Ltd' },
+      { url: 'https://nz.seek.com/job/22', title: 'Tester', employer: 'Second Ltd' },
     ]);
   });
 
@@ -121,7 +113,10 @@ describe('visible SEEK cards', () => {
       <article data-testid="job-card"><h3><a href="/job/44">One</a><a href="/job/55">Another</a></h3></article>`);
     const cards = findSeekCards(doc);
     expect(cards).toHaveLength(1);
-    expect(cards[0]).toMatchObject({ jobId: '33', employer: 'Actual Employer' });
+    expect(cards[0]).toMatchObject({
+      url: 'https://nz.seek.com/job/33',
+      employer: 'Actual Employer',
+    });
   });
 
   it('ignores hidden, injected and foreign-host cards', () => {
@@ -136,7 +131,7 @@ describe('visible SEEK cards', () => {
 });
 
 describe('identity-bound rendered detail extraction', () => {
-  it('extracts visible text and leaves salary unknown, with canonical source URL', () => {
+  it('extracts only the visible advert fields with a canonical source URL', () => {
     const doc = page(
       detail(
         '12345678',
@@ -144,15 +139,24 @@ describe('identity-bound rendered detail extraction', () => {
       ),
       'https://www.seek.co.nz/job/12345678?ref=source',
     );
-    expect(readSeekDetail(doc, '12345678')).toMatchObject({
+    // Exactly the draft fields: no salary guess from hidden JSON and no retention flag.
+    expect(readSeekDetail(doc, '12345678')).toEqual({
       title: 'Software Engineer',
       employer: 'Example Employer',
       location: 'Auckland',
       body: description,
       sourceUrl: 'https://nz.seek.com/job/12345678',
-      retainBody: false,
-      salary: { min: null, max: null, currency: 'NZD', period: 'annual', hoursPerWeek: null },
     });
+  });
+
+  it('keeps list items as bulleted lines and drops soft hyphens', () => {
+    const html = detail().replace(
+      `<p>${description}</p>`,
+      `<p>­­About you</p><p>To succeed you will have:</p><ul><li>A full <b>driver</b> licence</li><li> </li><li>Exper­ience with Xero</li></ul><p>Apply today.</p>`,
+    );
+    expect(readSeekDetail(page(html, 'https://nz.seek.com/job/12345678'))?.body).toBe(
+      'About you\n\nTo succeed you will have:\n• A full driver licence\n• Experience with Xero\n\nApply today.',
+    );
   });
 
   it('keeps related-card employer and location metadata out of the selected job', () => {
@@ -216,8 +220,7 @@ describe('identity-bound rendered detail extraction', () => {
       'https://nz.seek.com/jobs?jobId=123456789012345678901',
       'https://nz.seek.com/job/1?jobId=12340003',
     ]) {
-      expect(readSeekDetail(page(html, url))).toBeNull();
-      expect(findSeekDetailAnchor(page(html, url))).toBeNull();
+      expect(readSeekDetailAt(page(html, url))).toBeNull();
     }
     expect(readSeekDetail(page(detail('1'), 'https://nz.seek.com/jobs?jobId=12340003'))).toBeNull();
   });
@@ -281,7 +284,7 @@ describe('identity-bound rendered detail extraction', () => {
       'https://nz.seek.com/job/12345678',
     );
     expect(findSeekCards(doc)).toHaveLength(1);
-    expect(findSeekDetailAnchor(doc)).not.toBeNull();
+    expect(readSeekDetailAt(doc)?.anchor.getAttribute('data-automation')).toBe('jobAdDetails');
     for (const path of [
       '/profile',
       '/my-activity',
@@ -291,8 +294,7 @@ describe('identity-bound rendered detail extraction', () => {
     ]) {
       doc.defaultView!.history.pushState({}, '', path);
       expect(findSeekCards(doc)).toEqual([]);
-      expect(findSeekDetailAnchor(doc)).toBeNull();
-      expect(readSeekDetail(doc)).toBeNull();
+      expect(readSeekDetailAt(doc)).toBeNull();
     }
   });
 
@@ -315,12 +317,13 @@ describe('identity-bound rendered detail extraction', () => {
       `<div role="dialog"><section><h1 data-automation="job-detail-title"><a href="/job/12340001?ref=home">Platform Engineer</a></h1><span data-automation="advertiser-name">Example Ltd</span><span data-automation="job-detail-location">Auckland</span><a data-automation="job-detail-apply" href="/job/12340001/apply">Apply</a><div><div data-automation="jobAdDetails">${description}</div></div><div data-automation="company-profile">Company information must not enter the JD.</div></section></div>`,
       'https://nz.seek.com/',
     );
-    expect(readSeekDetail(doc, '12340001')).toMatchObject({
+    const read = readSeekDetailAt(doc, '12340001');
+    expect(read?.draft).toMatchObject({
       title: 'Platform Engineer',
       body: description,
       sourceUrl: 'https://nz.seek.com/job/12340001',
     });
-    expect(findSeekDetailAnchor(doc)?.getAttribute('data-automation')).toBe('jobAdDetails');
+    expect(read?.anchor.getAttribute('data-automation')).toBe('jobAdDetails');
     expect(readSeekDetail(doc, '12340002')).toBeNull();
   });
 

@@ -7,5 +7,6 @@
     "noUnusedParameters": true,
     "jsx": "react-jsx",
     "types": ["chrome", "vite/client"]
-  }
+  },
+  "exclude": ["**/node_modules", ".output", "output"]
 }

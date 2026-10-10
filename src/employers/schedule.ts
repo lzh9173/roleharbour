@@ -1,5 +1,9 @@
 import { getEmployerCacheStatus, refreshEmployerSnapshot } from './index';
-import { EMPLOYER_REFRESH_INTERVAL_MS, type EmployerCacheStatus } from './types';
+import {
+  EMPLOYER_REFRESH_INTERVAL_MS,
+  EMPLOYER_RETRY_INTERVAL_MS,
+  type EmployerCacheStatus,
+} from './types';
 
 export const EMPLOYER_SNAPSHOT_ALARM = 'roleharbour-employer-snapshot-weekly';
 export const EMPLOYER_SNAPSHOT_PERIOD_MINUTES = 10_080;
@@ -24,7 +28,8 @@ export function startEmployerSnapshotSchedule(
     // for a second week. A small delay avoids an immediate loop if storage is unavailable.
     const when = Math.max(
       now + 60_000,
-      (status?.lastAttemptAt ?? now) + EMPLOYER_REFRESH_INTERVAL_MS,
+      (status?.lastAttemptAt ?? now) +
+        (status?.error ? EMPLOYER_RETRY_INTERVAL_MS : EMPLOYER_REFRESH_INTERVAL_MS),
     );
     const existing = await chrome.alarms.get(EMPLOYER_SNAPSHOT_ALARM);
     if (

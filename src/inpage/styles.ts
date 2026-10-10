@@ -1,3 +1,15 @@
+/** Ad wording without the list bullet the DOM reader adds (or the ad itself used). */
+export function stripBullet(text: string): string {
+  return text.replace(/^[-*•●▪]\s*/, '');
+}
+
+/** Ad wording for a hover hint: no list bullet, and short enough to read in a tooltip. */
+export function hint(text: string | undefined): string | undefined {
+  if (!text) return undefined;
+  const plain = stripBullet(text);
+  return plain.length > 280 ? `${plain.slice(0, 279).trimEnd()}…` : plain;
+}
+
 export const focusRing =
   'focus-visible:outline-[3px] focus-visible:outline-solid focus-visible:outline-rh-focus focus-visible:outline-offset-[3px]';
 
@@ -5,8 +17,17 @@ export const buttonStyle = `cursor-pointer rounded-[8px] border border-rh-border
 
 export const quietButtonStyle = `cursor-pointer rounded-[8px] border border-transparent bg-transparent py-1 text-[12px] leading-[1.4] text-rh-muted hover:border-rh-border-strong hover:bg-rh-info-bg disabled:cursor-default disabled:opacity-45 aria-disabled:cursor-default aria-disabled:opacity-45 [-webkit-tap-highlight-color:transparent] ${focusRing}`;
 
-export const primaryButtonStyle = `cursor-pointer rounded-[8px] border border-transparent bg-rh-accent py-1 text-[12px] leading-[1.4] font-semibold text-white enabled:hover:bg-rh-accent-hover disabled:cursor-default disabled:opacity-45 aria-disabled:cursor-default aria-disabled:opacity-45 [-webkit-tap-highlight-color:transparent] ${focusRing}`;
-
 export const linkStyle = `text-rh-link no-underline hover:underline [-webkit-tap-highlight-color:transparent] ${focusRing}`;
 
+/** A verdict or chip that reveals its source sentence on click; styled by the caller. */
+export const evidenceToggleStyle = `cursor-pointer appearance-none border-0 bg-transparent p-0 font-[inherit] text-[inherit] leading-[inherit] ${focusRing}`;
+
 export const brandStyle = 'text-[13px] font-extrabold tracking-[1.2px] text-rh-navy';
+
+const pill = 'inline-flex w-fit rounded-[6px] border px-[8px] py-[1px] text-[12px] font-[650]';
+/** Short status labels: a match or supportive wording, something to check, or nothing known. */
+export const pillStyle = {
+  positive: `${pill} border-rh-positive-border bg-rh-positive-bg text-rh-positive`,
+  warning: `${pill} border-rh-warning-border bg-rh-warning-bg text-rh-warning`,
+  neutral: `${pill} border-rh-border-strong/45 bg-white text-rh-muted`,
+} as const;

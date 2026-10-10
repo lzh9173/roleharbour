@@ -11,7 +11,6 @@ import {
   t,
   translate,
 } from '../src/i18n';
-import { JevError } from '../src/providers/jev';
 import { draftSchema } from '../src/core/schema';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -82,7 +81,9 @@ describe('browser language selection and translation integrity', () => {
   });
 
   it('interpolates replacement characters literally without altering source text', () => {
-    expect(translate('en', 'page.occupationReference')).toBe('Occupation reference: ');
+    expect(translate('en', 'page.occupationReference')).toBe(
+      messages['page.occupationReference'][1],
+    );
     expect(translate('en', 'page.jobCount', { count: '$& {name}' })).toBe(
       'Employer list matching · $& {name} jobs',
     );
@@ -98,22 +99,27 @@ describe('browser language selection and translation integrity', () => {
     expect(() => formatDate('2026-09-21')).not.toThrow();
   });
 
-  it('localises runtime validation and provider failures without changing diagnostics', () => {
+  it('localises runtime validation messages', () => {
     vi.stubGlobal('chrome', { i18n: { getUILanguage: () => 'en' } });
-    const failure = new JevError('invalid_response', true, {
-      stage: 'probability_sum',
-      questionId: 'experience_estimate_evidence',
-      probabilitySum: 0.8,
-    });
-    expect(failure.message).not.toMatch(/\p{Script=Han}/u);
-    expect(failure.message).toContain('[probability_sum:experience_estimate_evidence] (sum=0.8)');
-    expect(failure.outcomeUnknown).toBe(true);
     const result = draftSchema.safeParse(emptyDraft);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.map((issue) => issue.message)).toContain('Enter a job title');
       expect(result.error.message).not.toMatch(/\p{Script=Han}/u);
     }
+  });
+
+  it('no longer ships copy for the retired remote provider, API key or job backups', () => {
+    const catalogs = [
+      ...Object.values(messages).flat(),
+      ...Object.values(additionalMessages).flatMap((catalog) => Object.values(catalog)),
+    ];
+    for (const text of catalogs) {
+      expect(text).not.toMatch(/TypeSafe|\bJEV\b|API\s*Key/i);
+    }
+    expect(
+      Object.keys(messages).filter((key) => /jev|apiKey|consent|jobBackup/i.test(key)),
+    ).toEqual([]);
   });
 
   it('ships native extension names and toolbar labels for all five languages', () => {

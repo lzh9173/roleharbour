@@ -1,7 +1,9 @@
+import { isWorkerNotice } from '../core/messages';
 import { isPageRuntimeAvailable, sendPageMessage } from '../core/page-runtime';
 import { applyLanguagePreference, isLanguagePreference } from './preference';
 
-/** Content scripts cannot read the local storage area containing the API Key. */
+/** Content scripts cannot read extension storage (restricted to trusted contexts); the worker
+ * reports the language preference instead. */
 export function connectPageLanguage(): () => void {
   let active = true;
   let disposed = false;
@@ -31,16 +33,7 @@ export function connectPageLanguage(): () => void {
       });
   };
   const changed = (message: unknown, sender: chrome.runtime.MessageSender) => {
-    if (
-      !active ||
-      typeof sender.id !== 'string' ||
-      sender.id !== extensionId ||
-      sender.tab ||
-      !message ||
-      typeof message !== 'object'
-    )
-      return;
-    if ('type' in message && message.type === 'language:changed') refresh();
+    if (active && isWorkerNotice(message, sender, 'language:changed', extensionId)) refresh();
   };
   function stop() {
     if (disposed) return;

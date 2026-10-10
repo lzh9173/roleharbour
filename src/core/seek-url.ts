@@ -1,6 +1,9 @@
 const seekHosts = new Set(['nz.seek.com', 'www.seek.co.nz']);
 const jobIdPattern = /^[0-9]{1,20}$/;
 
+/** Extension match patterns for the two NZ SEEK hosts (content script, permissions, tab queries). */
+export const SEEK_MATCHES = [...seekHosts].map((host) => `https://${host}/*`);
+
 /** Shared URL policy for DOM extraction and authenticated background requests. */
 export function parseSeekUrl(value: string | undefined, base?: string): URL | null {
   if (!value) return null;

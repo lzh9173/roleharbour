@@ -6,22 +6,6 @@ import { App } from '../src/ui/App';
 import { t } from '../src/i18n';
 import { applyLanguagePreference, loadLanguagePreference } from '../src/i18n/preference';
 
-const settings = vi.hoisted(() => ({
-  getKeyState: vi.fn(),
-  getPagePreferences: vi.fn(),
-  saveApiKey: vi.fn(),
-  clearApiKey: vi.fn(),
-  setAutoAnalyze: vi.fn(),
-}));
-const database = vi.hoisted(() => ({
-  listJobs: vi.fn(),
-  listTasks: vi.fn(),
-  clearAllJobs: vi.fn(),
-  importJobs: vi.fn(),
-  serializeJobs: vi.fn(),
-}));
-vi.mock('../src/storage/settings', () => settings);
-vi.mock('../src/storage/db', () => database);
 vi.mock('../src/ui/EmployerSettings', () => ({
   EmployerSettings: () =>
     createElement('section', { 'data-testid': 'employer-settings' }, t('settings.employerList')),
@@ -29,83 +13,52 @@ vi.mock('../src/ui/EmployerSettings', () => ({
 
 let container: HTMLDivElement;
 let root: Root;
-let requestPermission: ReturnType<typeof vi.fn>;
 let languageStorage: Record<string, unknown>;
 let saveLanguage: ReturnType<typeof vi.fn>;
 let runtimeMessage: ReturnType<typeof vi.fn>;
-
-function button(label: string) {
-  const result = [...container.querySelectorAll('button')].find(
-    (element) => element.textContent === label,
-  );
-  if (!result) throw new Error(`Missing button: ${label}`);
-  return result;
-}
-
-function checkbox(label: string) {
-  const result = [...container.querySelectorAll('label')]
-    .find((element) => element.textContent?.includes(label))
-    ?.querySelector<HTMLInputElement>('input[type="checkbox"]');
-  if (!result) throw new Error(`Missing checkbox: ${label}`);
-  return result;
-}
+let requestPermission: ReturnType<typeof vi.fn>;
+let getURL: ReturnType<typeof vi.fn>;
 
 async function mount() {
   await act(async () => root.render(createElement(App)));
 }
 
+function languageSelect() {
+  return container.querySelector<HTMLSelectElement>('[data-testid="language-setting"] select')!;
+}
+
+async function choose(select: HTMLSelectElement, value: string) {
+  await act(async () => {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+function languageAlert() {
+  return container.querySelector('[data-testid="language-settings"] [role="alert"]')!;
+}
+
 beforeEach(() => {
-  vi.clearAllMocks();
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-  location.hash = '#settings';
-  database.listJobs.mockResolvedValue([]);
-  database.listTasks.mockResolvedValue([
-    { id: 'old-task', status: 'outcome_unknown', startedAt: 1, message: '上次分析结果未知' },
-  ]);
-  settings.getKeyState.mockResolvedValue({ configured: false, remembered: false, consent: false });
-  settings.getPagePreferences.mockResolvedValue({
-    provider: 'jev',
-    ready: false,
-    autoAnalyze: false,
-  });
-  settings.setAutoAnalyze.mockImplementation(async (autoAnalyze: boolean, provider = 'jev') => ({
-    provider,
-    ready: true,
-    autoAnalyze,
-  }));
-  settings.saveApiKey.mockImplementation(async () => {
-    settings.getKeyState.mockResolvedValue({ configured: true, remembered: true, consent: true });
-    settings.getPagePreferences.mockResolvedValue({
-      provider: 'jev',
-      ready: true,
-      autoAnalyze: false,
-    });
-  });
-  settings.clearApiKey.mockImplementation(async () => {
-    settings.getKeyState.mockResolvedValue({
-      configured: false,
-      remembered: false,
-      consent: false,
-    });
-    settings.getPagePreferences.mockResolvedValue({
-      provider: 'jev',
-      ready: false,
-      autoAnalyze: false,
-    });
-  });
-  requestPermission = vi.fn().mockResolvedValue(true);
-  runtimeMessage = vi
-    .fn()
-    .mockResolvedValue({ ok: true, status: { state: 'idle' }, enabled: false });
+  runtimeMessage = vi.fn();
+  requestPermission = vi.fn();
+  getURL = vi.fn((path: string) => `chrome-extension://abcdefghijklmnopabcdefghijklmnop/${path}`);
   languageStorage = {};
   saveLanguage = vi.fn(async (data: Record<string, unknown>) => {
     Object.assign(languageStorage, data);
   });
   vi.stubGlobal('chrome', {
-    runtime: { id: 'abcdefghijklmnopabcdefghijklmnop', sendMessage: runtimeMessage },
-    tabs: { create: vi.fn().mockResolvedValue({ id: 1 }) },
+    runtime: {
+      id: 'abcdefghijklmnopabcdefghijklmnop',
+      sendMessage: runtimeMessage,
+      getManifest: () => ({ version: '0.22.0' }),
+      getURL,
+    },
     permissions: { request: requestPermission },
-    storage: { local: { get: vi.fn(async () => ({ ...languageStorage })), set: saveLanguage } },
+    storage: {
+      local: { get: vi.fn(async () => ({ ...languageStorage })), set: saveLanguage },
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
   });
   container = document.createElement('div');
   document.body.append(container);
@@ -115,210 +68,84 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
-  location.hash = '';
-  if (vi.isFakeTimers()) {
-    vi.clearAllTimers();
-    vi.useRealTimers();
-  }
-  vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  applyLanguagePreference('auto');
 });
 
-describe('compact settings and TypeSafe setup', () => {
-  it.each(['', '#settings'])(
-    'opens only settings at %s while backup tools stay collapsed',
-    async (hash) => {
-      location.hash = hash;
-      await mount();
-      const steps = container.querySelector('ol[aria-label="开始使用 TypeSafe"]')!;
-      expect(steps.querySelectorAll('li')).toHaveLength(3);
-      expect([...steps.querySelectorAll('a')].map((link) => link.href)).toEqual([
-        'https://console.typesafe.ai/',
-        'https://console.typesafe.ai/keys',
-      ]);
-      expect(container.textContent).not.toMatch(/简历|匹配度|AI 评估/);
-      expect(container.querySelector('input[accept*=".pdf"]')).toBeNull();
-      expect(container.querySelector('[data-testid="basic-settings"]')?.parentElement).toBe(
-        container.querySelector('[data-testid="settings-page"]'),
-      );
-      const details = container.querySelectorAll('details');
-      expect(details).toHaveLength(1);
-      expect(details[0]?.open).toBe(false);
-      expect(details[0]?.querySelector('summary')?.textContent).toBe('更多设置');
-      expect(details[0]?.querySelector('[data-testid="employer-settings"]')).not.toBeNull();
-      for (const label of ['导出备份', '导入备份', '清空岗位记录']) {
-        expect(button(label).closest('details')).toBe(details[0]);
-      }
-      expect(checkbox('打开 SEEK 职位时自动分析').disabled).toBe(true);
-      expect(container.querySelector('.hero, .page-heading, .beta')).toBeNull();
-      expect(container.textContent).not.toMatch(
-        /能力范围|JOB COMPANION|控制权，在你手里|上次分析结果未知/,
-      );
-      expect(requestPermission).not.toHaveBeenCalled();
-
-      expect(container.querySelector('h1')?.textContent).toBe('设置');
-      expect(container.querySelector('header, nav, footer')).toBeNull();
-      expect(container.textContent).not.toMatch(/SEEK\s*FILTER|分析职位|岗位库|查找助手/);
-    },
-  );
-
-  it('preserves explicit authorization and save behavior without hiding current settings errors', async () => {
+describe('on-device settings page', () => {
+  it('shows the header, then the employer card first, collected ads, language and privacy', async () => {
     await mount();
-    await act(async () => button('保存 Key').click());
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain('请填写 Key');
-    expect(settings.saveApiKey).not.toHaveBeenCalled();
+    const header = container.querySelector('header')!;
+    expect(header.textContent).toContain('RoleHarbour');
+    expect(header.textContent).toContain('版本 0.22.0');
+    expect(container.querySelector('h1')?.textContent).toBe('设置');
+    expect(header.textContent).toContain('所有分析都在本机完成');
+    const page = container.querySelector('[data-testid="settings-page"]')!;
+    expect(page.tagName).toBe('MAIN');
+    expect([...page.children].map((node) => node.getAttribute('data-testid'))).toEqual([
+      'employer-settings',
+      'language-settings',
+      'privacy-settings',
+    ]);
+    expect(document.title).toBe('设置');
+    expect(document.documentElement.lang).toBe('zh-CN');
+  });
+
+  it('has no API key, consent, automatic-analysis or job backup controls', async () => {
+    await mount();
+    expect(container.querySelector('input')).toBeNull();
+    expect(container.querySelectorAll('select')).toHaveLength(1);
+    expect(container.querySelector('button')).toBeNull();
+    expect(container.querySelector('details')).toBeNull();
+    expect(container.textContent).not.toMatch(
+      /Key|TypeSafe|JEV|同意|自动分析|导出备份|导入备份|清空岗位记录|岗位记录/i,
+    );
+    expect(container.querySelector('a[href*="typesafe"]')).toBeNull();
     expect(requestPermission).not.toHaveBeenCalled();
-
-    const input = container.querySelector<HTMLInputElement>('input[type="password"]')!;
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
-        input,
-        'synthetic-test-key',
-      );
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      checkbox('在此浏览器记住 Key').click();
-      checkbox('我同意将用于分析的职位内容').click();
-    });
-    await act(async () => button('保存 Key').click());
-    expect(requestPermission).toHaveBeenCalledExactlyOnceWith({
-      origins: ['https://api.typesafe.ai/*'],
-    });
-    expect(settings.saveApiKey).toHaveBeenCalledExactlyOnceWith('synthetic-test-key', true, true);
-    expect(input.value).toBe('');
-    expect(container.querySelector('ol[aria-label="开始使用 TypeSafe"]')).toBeNull();
-    expect(checkbox('打开 SEEK 职位时自动分析').disabled).toBe(false);
-    expect(container.querySelector('[role="status"]')?.textContent).toContain('Key 已保存');
+    expect(runtimeMessage).not.toHaveBeenCalled();
+    expect(saveLanguage).not.toHaveBeenCalled();
   });
 
-  it('keeps the automatic-analysis switch and clearing a configured key usable', async () => {
-    settings.getKeyState.mockResolvedValue({ configured: true, remembered: true, consent: true });
-    settings.getPagePreferences.mockResolvedValue({
-      provider: 'jev',
-      ready: true,
-      autoAnalyze: false,
-    });
+  it('links the privacy card to the bundled data source notice', async () => {
     await mount();
-    expect(container.querySelector('ol[aria-label="开始使用 TypeSafe"]')).toBeNull();
-    await act(async () => checkbox('打开 SEEK 职位时自动分析').click());
-    expect(settings.setAutoAnalyze).toHaveBeenCalledExactlyOnceWith(true, 'jev');
-    expect(checkbox('打开 SEEK 职位时自动分析').checked).toBe(true);
-    await act(async () => button('清除 Key').click());
-    expect(settings.clearApiKey).toHaveBeenCalledExactlyOnceWith();
-    expect(checkbox('打开 SEEK 职位时自动分析').checked).toBe(false);
-    expect(checkbox('打开 SEEK 职位时自动分析').disabled).toBe(true);
-    expect(container.querySelector('ol[aria-label="开始使用 TypeSafe"]')).not.toBeNull();
-    expect(requestPermission).not.toHaveBeenCalled();
-  });
-
-  it('serializes Key writes while a permission request is pending', async () => {
-    settings.getKeyState.mockResolvedValue({ configured: true, remembered: true, consent: true });
-    settings.getPagePreferences.mockResolvedValue({
-      provider: 'jev',
-      ready: true,
-      autoAnalyze: false,
-    });
-    let allow!: (value: boolean) => void;
-    requestPermission.mockImplementation(
-      () => new Promise<boolean>((resolve) => (allow = resolve)),
+    const privacy = container.querySelector('[data-testid="privacy-settings"]')!;
+    expect(privacy.querySelector('h2')?.textContent).toBe('隐私与数据来源');
+    expect(privacy.textContent).toContain('插件只会联网下载公开的认证雇主名单');
+    const link = privacy.querySelector('a')!;
+    expect(getURL).toHaveBeenCalledWith('occupation-sources.txt');
+    expect(link.href).toBe(
+      'chrome-extension://abcdefghijklmnopabcdefghijklmnop/occupation-sources.txt',
     );
-    await mount();
-    const input = container.querySelector<HTMLInputElement>('input[type="password"]')!;
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
-        input,
-        'replacement-test-key',
-      );
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      checkbox('我同意将用于分析的职位内容').click();
-    });
-    await act(async () => {
-      button('保存 Key').click();
-      button('保存 Key').click();
-      button('清除 Key').click();
-    });
-    expect(requestPermission).toHaveBeenCalledTimes(1);
-    expect(settings.clearApiKey).not.toHaveBeenCalled();
-    expect(button('保存 Key').disabled).toBe(true);
-    expect(button('清除 Key').disabled).toBe(true);
-    expect(input.disabled).toBe(true);
-    expect(checkbox('打开 SEEK 职位时自动分析').disabled).toBe(true);
-    await act(async () => allow(true));
-    expect(settings.saveApiKey).toHaveBeenCalledExactlyOnceWith(
-      'replacement-test-key',
-      false,
-      true,
-    );
-    expect(button('清除 Key').disabled).toBe(false);
-    await act(async () => button('清除 Key').click());
-    expect(settings.clearApiKey).toHaveBeenCalledExactlyOnceWith();
-    expect(checkbox('打开 SEEK 职位时自动分析').disabled).toBe(true);
+    expect(link.textContent).toBe('数据来源与许可 ↗');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toBe('noopener noreferrer');
   });
 
-  it('does not restore stale Key and auto-analysis state after a focus read races with clearing', async () => {
-    const oldKeyState = { configured: true, remembered: true, consent: true };
-    settings.getKeyState.mockResolvedValue(oldKeyState);
-    settings.getPagePreferences.mockResolvedValue({
-      provider: 'jev',
-      ready: true,
-      autoAnalyze: true,
-    });
+  it('omits the version when the manifest is unavailable', async () => {
+    vi.stubGlobal('chrome', { ...chrome, runtime: { ...chrome.runtime, getManifest: undefined } });
     await mount();
-    let finishRead!: (value: typeof oldKeyState) => void;
-    settings.getKeyState.mockImplementationOnce(
-      () => new Promise((resolve) => (finishRead = resolve)),
-    );
-    await act(async () => window.dispatchEvent(new Event('focus')));
-    await act(async () => button('清除 Key').click());
-    await act(async () => finishRead(oldKeyState));
-    expect(button('清除 Key').disabled).toBe(true);
-    expect(checkbox('打开 SEEK 职位时自动分析').checked).toBe(false);
-    expect(checkbox('打开 SEEK 职位时自动分析').disabled).toBe(true);
-    expect(container.querySelector('ol[aria-label="开始使用 TypeSafe"]')).not.toBeNull();
-  });
-
-  it('restores settings controls when saving the Key fails', async () => {
-    await mount();
-    const input = container.querySelector<HTMLInputElement>('input[type="password"]')!;
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
-        input,
-        'synthetic-test-key',
-      );
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      checkbox('我同意将用于分析的职位内容').click();
-    });
-    settings.saveApiKey.mockRejectedValueOnce(new Error('storage unavailable'));
-    await act(async () => button('保存 Key').click());
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain('storage unavailable');
-    expect(button('保存 Key').disabled).toBe(false);
-    expect(input.disabled).toBe(false);
-    expect(input.value).toBe('synthetic-test-key');
+    expect(container.querySelector('header')?.textContent).not.toContain('版本');
+    expect(container.querySelector('header p')?.textContent).toBe('RoleHarbour');
   });
 });
 
-it('renders English settings from the browser UI language and preserves consent controls', async () => {
+it('renders English settings from the browser UI language', async () => {
   chrome.i18n = { getUILanguage: () => 'en-GB' } as typeof chrome.i18n;
   await mount();
   expect(container.querySelector('h1')?.textContent).toBe('Settings');
-  expect(container.textContent).toContain('Basic settings');
-  expect(container.textContent).toContain('More settings');
+  expect(container.textContent).toContain('Version 0.22.0');
+  expect(container.textContent).toContain('Accredited employer list');
+  expect(container.textContent).toContain('Privacy and data sources');
   const copy = container.cloneNode(true) as HTMLElement;
   copy.querySelector('select')?.remove();
   expect(copy.textContent).not.toMatch(/\p{Script=Han}/u);
-  expect(container.querySelector('details')?.open).toBe(false);
-  expect(button('Save Key')).toBeDefined();
-  await act(async () => button('Save Key').click());
-  expect(container.querySelector('[role="alert"]')?.textContent).toContain('Enter your Key');
-  expect(settings.saveApiKey).not.toHaveBeenCalled();
-  expect(requestPermission).not.toHaveBeenCalled();
+  expect(document.documentElement.lang).toBe('en');
 });
 
-it('switches among all five languages, saves immediately, and preserves unsaved Key input', async () => {
+it('switches among all five languages and saves immediately', async () => {
   chrome.i18n = { getUILanguage: () => 'en-GB' } as typeof chrome.i18n;
   await mount();
-  const select = container.querySelector<HTMLSelectElement>(
-    '[data-testid="language-setting"] select',
-  )!;
+  const select = languageSelect();
   expect([...select.options].map((option) => option.value)).toEqual([
     'auto',
     'zh-CN',
@@ -327,74 +154,63 @@ it('switches among all five languages, saves immediately, and preserves unsaved 
     'ja',
     'ko',
   ]);
-  const input = container.querySelector<HTMLInputElement>('input[type="password"]')!;
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
-      input,
-      'unsaved-test-key',
-    );
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
   for (const [locale, title] of [
     ['zh-CN', '设置'],
     ['en', 'Settings'],
     ['zh-TW', '設定'],
     ['ja', '設定'],
     ['ko', '설정'],
-  ]) {
-    await act(async () => {
-      select.value = locale!;
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+  ] as const) {
+    await choose(select, locale);
     expect(container.querySelector('h1')?.textContent).toBe(title);
     expect(document.documentElement.lang).toBe(locale);
     expect(document.title).toBe(title);
     expect(languageStorage).toEqual({ uiLanguage: locale });
-    expect(input.value).toBe('unsaved-test-key');
+    expect(languageAlert().textContent).toBe('');
   }
-  expect(settings.saveApiKey).not.toHaveBeenCalled();
-  expect(settings.setAutoAnalyze).not.toHaveBeenCalled();
-  expect(database.listJobs).toHaveBeenCalledTimes(1);
-  expect(requestPermission).not.toHaveBeenCalled();
   await act(async () => {
     applyLanguagePreference('auto');
     await loadLanguagePreference();
   });
   expect(select.value).toBe('ko');
-  await act(async () => {
-    select.value = 'auto';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  await choose(select, 'auto');
   expect(container.querySelector('h1')?.textContent).toBe('Settings');
   expect(languageStorage).toEqual({ uiLanguage: 'auto' });
+  expect(runtimeMessage).not.toHaveBeenCalled();
+  expect(requestPermission).not.toHaveBeenCalled();
 });
 
-it('keeps the current language and shows an error when saving fails', async () => {
+it('disables the language select while saving', async () => {
   await mount();
+  let finish!: () => void;
+  saveLanguage.mockImplementationOnce(
+    (data: Record<string, unknown>) =>
+      new Promise<void>((resolve) => {
+        finish = () => {
+          Object.assign(languageStorage, data);
+          resolve();
+        };
+      }),
+  );
+  const select = languageSelect();
+  await choose(select, 'en');
+  expect(select.disabled).toBe(true);
+  await act(async () => finish());
+  expect(select.disabled).toBe(false);
+  expect(container.querySelector('h1')?.textContent).toBe('Settings');
+});
+
+it('keeps the current language and shows the failure in the alert when saving fails', async () => {
+  await mount();
+  expect(languageAlert().textContent).toBe('');
   saveLanguage.mockRejectedValueOnce(new Error('storage unavailable'));
-  const select = container.querySelector<HTMLSelectElement>(
-    '[data-testid="language-setting"] select',
-  )!;
-  await act(async () => {
-    select.value = 'ja';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  const select = languageSelect();
+  await choose(select, 'ja');
   expect(select.value).toBe('auto');
   expect(container.querySelector('h1')?.textContent).toBe('设置');
-  expect(container.querySelector('[role="alert"]')?.textContent).toContain('语言设置未保存');
+  expect(languageAlert().textContent).toBe('语言设置未保存，请重试。');
   expect(select.disabled).toBe(false);
+  await choose(select, 'en');
+  expect(languageAlert().textContent).toBe('');
+  expect(container.querySelector('h1')?.textContent).toBe('Settings');
 });
-
-it.each(['zh-CN', 'en', 'zh-TW', 'ja', 'ko'] as const)(
-  'exposes only JEV configuration in %s',
-  async (locale) => {
-    applyLanguagePreference(locale);
-    await mount();
-    expect(container.querySelector('input[type="password"]')).not.toBeNull();
-    expect(container.querySelectorAll('select')).toHaveLength(1);
-    expect(container.querySelector('[data-testid="analysis-provider-setting"]')).toBeNull();
-    expect(container.textContent).not.toMatch(/Codex|Qwen|WebGPU/);
-    expect(container.querySelector('a[href="./qwen.html"]')).toBeNull();
-    expect(requestPermission).not.toHaveBeenCalled();
-  },
-);

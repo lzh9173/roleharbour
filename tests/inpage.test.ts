@@ -3,11 +3,10 @@
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountSeekIntegration } from '../src/inpage/mount';
-import type { SavedJob } from '../src/core/schema';
-import type { PagePreferences } from '../src/storage/settings';
 import type { EmployerCheck } from '../src/employers';
 import { applyLanguagePreference } from '../src/i18n/preference';
 import { t } from '../src/i18n';
+import { localAnalysis, type LocalReading } from '../src/core/local-analysis';
 
 const description =
   'Design and maintain software systems, review application changes and diagnose production incidents with the engineering team.';
@@ -20,54 +19,23 @@ const fixture =
     <div data-automation="jobAdDetails"><p>${description}</p></div>
     <a data-automation="job-detail-apply" href="/job/11/apply">Apply</a>
   </section></main>`;
+const requirementsBody =
+  'Requirements:\nPython skills required.\nThree years of engineering experience required.';
+const allowedTypes = new Set(['page:language', 'page:employers', 'page:local']);
 
 let cleanup: (() => void) | undefined;
 let shadows: Map<HTMLElement, ShadowRoot>;
 let send: ReturnType<typeof vi.fn>;
-let preferences: PagePreferences;
 let visibility: DocumentVisibilityState;
 const calls = (type: string) => send.mock.calls.filter(([message]) => message.type === type);
-function savedJob(): SavedJob {
-  const decision = <T extends string>(choice: T) => ({
-    choice,
-    probabilities: { [choice]: 1 },
-    confidence: 1,
-    evidence: [],
-  });
-  return {
-    id: 'analysis-11',
-    title: 'Software Engineer',
-    employer: 'Synthetic Employer',
-    location: 'Auckland',
-    sourceUrl: 'https://nz.seek.com/job/11',
-    contentHash: 'synthetic-hash',
-    salary: { min: null, max: null, currency: 'NZD', period: 'annual', hoursPerWeek: null },
-    createdAt: 1,
-    updatedAt: 1,
-    bookmarked: false,
-    candidateIds: [],
-    mode: 'jev',
-    dataVersion: 'test-version',
-    evidence: [],
-    jev: {
-      model: 'synthetic-model',
-      occupation: decision('none'),
-      sponsorship: decision('not_mentioned'),
-      workRights: decision('not_mentioned'),
-      residency: decision('not_mentioned'),
-      requirements: { skills: [], experience: [], truncated: false },
-      usage: { inputTokens: 10, outputTokens: 0 },
-    },
-  };
-}
 function reply(message: { type: string }) {
   switch (message.type) {
-    case 'page:preferences':
-      return { ok: true, preferences: { ...preferences } };
     case 'page:employers':
       return { ok: true, employers: [] };
-    case 'page:analyze':
-      return { ok: true, job: savedJob(), cached: true };
+    case 'page:local': {
+      const { title, body } = message as unknown as { title: string; body: string };
+      return { ok: true, reading: localAnalysis(title, body) };
+    }
     default:
       return { ok: true };
   }
@@ -75,6 +43,9 @@ function reply(message: { type: string }) {
 function setVisibility(next: DocumentVisibilityState) {
   visibility = next;
   document.dispatchEvent(new Event('visibilitychange'));
+}
+function setBody(text: string) {
+  document.querySelector('[data-automation="jobAdDetails"]')!.textContent = text;
 }
 
 const hosts = (kind?: string) =>
@@ -93,6 +64,14 @@ function button(root: ShadowRoot, label: string): HTMLButtonElement {
     (node) => node.textContent === label,
   );
   if (!found) throw new Error(`Missing button: ${label}`);
+  return found;
+}
+/** The facts-grid cell whose label is `label`. */
+function fact(root: ShadowRoot, label: string): HTMLElement {
+  const found = Array.from(root.querySelectorAll<HTMLElement>('.facts .fact')).find(
+    (node) => node.querySelector('dt')?.textContent === label,
+  );
+  if (!found) throw new Error(`Missing fact: ${label}`);
   return found;
 }
 async function flush(ms = 800) {
@@ -123,7 +102,6 @@ function changeDetail(id: string, title = 'Systems Administrator') {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-  preferences = { provider: 'jev', autoAnalyze: false, ready: true };
   visibility = 'visible';
   vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility);
   send = vi.fn().mockImplementation(async (message) => reply(message));
@@ -155,166 +133,309 @@ afterEach(async () => {
   document.body.innerHTML = '';
 });
 
-describe('mounted SEEK integration on synthetic public DOM', () => {
-  it.each([false, true])(
-    'shows basic requirements without a Key even with stale auto=%s',
-    async (autoAnalyze) => {
-      preferences = { provider: 'jev', autoAnalyze, ready: false };
-      document.querySelector('[data-automation="jobAdDetails"]')!.textContent =
-        'Requirements:\nPython skills required.\nThree years of engineering experience required.';
-      await mount();
-      await flush(2_000);
-      const panel = shadow('detail');
-      expect(panel.textContent).toContain(t('page.connectPrompt'));
-      expect(panel.textContent).toContain('Python skills required.');
-      expect(panel.textContent).toContain('Three years of engineering experience required.');
-      expect(button(panel, t('page.configureAi')).disabled).toBe(false);
-      expect(panel.textContent).not.toContain(t('page.analysisConsent'));
-      expect(panel.querySelector('.occupation-visa')).toBeNull();
-      expect(calls('page:analyze')).toHaveLength(0);
-      expect(calls('page:employers').length).toBeGreaterThan(0);
-    },
-  );
-
-  it('renders basic excerpts while the settings response is still pending', async () => {
-    send.mockImplementation((message) =>
-      message.type === 'page:preferences' ? new Promise(() => {}) : Promise.resolve(reply(message)),
-    );
-    document.querySelector('[data-automation="jobAdDetails"]')!.textContent =
-      'Must have Python skills and experience developing production software.';
+describe('on-device job panel', () => {
+  it('renders facts and the preparation checklist from the page:local reply', async () => {
+    setBody(requirementsBody);
     await mount();
-    await flush();
-    expect(shadow('detail').textContent).toContain('Must have Python skills');
-    expect(calls('page:analyze')).toHaveLength(0);
+    await flush(2_000);
+    const panel = shadow('detail');
+    expect(calls('page:local')).toEqual([
+      [{ type: 'page:local', title: 'Software Engineer', body: requirementsBody }],
+    ]);
+    expect(send.mock.calls.every(([message]) => allowedTypes.has(message.type))).toBe(true);
+
+    expect(Array.from(panel.querySelectorAll('.facts dt'), (node) => node.textContent)).toEqual([
+      t('page.occupationReference'),
+      t('page.experience'),
+      t('page.accreditedList'),
+      t('page.visaSupport'),
+      t('page.workRights'),
+      t('page.residency'),
+    ]);
+    const expected = localAnalysis('Software Engineer', requirementsBody);
+    expect(fact(panel, t('page.occupationReference')).querySelector('dd')?.textContent).toBe(
+      expected.occupationTitle ?? t('page.undetermined'),
+    );
+    expect(fact(panel, t('page.accreditedList')).querySelector('.tag')?.textContent).toBe(
+      t('page.checking'),
+    );
+
+    // The checklist turns the statements into chips; the raw wording is not repeated.
+    const checklist = panel.querySelector('.prep-checklist')!;
+    expect(checklist.textContent).toContain(t('page.prepMust'));
+    expect(checklist.textContent).toContain(t('page.kindLanguage'));
+    expect(checklist.textContent).toContain('Python');
+    expect(panel.querySelector('details.source-text')).toBeNull();
+    expect(panel.textContent).not.toContain('查看原文');
+    expect(panel.querySelector('details.list-details')).not.toBeNull();
+    expect(panel.textContent).toContain(t('page.localNote'));
+    expect(panel.querySelector('[role="status"]')).toBeNull();
+    expect(panel.querySelector('[role="alert"]')).toBeNull();
+    // Nothing from the retired AI flow remains.
+    expect(panel.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(panel.textContent).not.toMatch(/分析岗位|重新分析|配置 AI|Jev|AI 预估|保存这则广告/);
   });
 
-  it('retains basic excerpts when an optional AI request fails', async () => {
-    preferences.autoAnalyze = true;
-    document.querySelector('[data-automation="jobAdDetails"]')!.textContent =
-      'Must have Python skills and experience developing production software.';
+  it('builds the occupation reference from the local reading', async () => {
+    const reading = localAnalysis('Software Engineer', description);
     send.mockImplementation(async (message) =>
-      message.type === 'page:analyze'
-        ? { ok: false, error: 'Synthetic provider unavailable' }
+      message.type === 'page:local'
+        ? { ok: true, reading: { ...reading, occupationTitle: 'Synthetic Occupation' } }
         : reply(message),
     );
     await mount();
     await flush();
-    expect(shadow('detail').querySelector('.basic-overview')?.textContent).toContain(
-      'Must have Python skills and experience developing production software.',
+    const panel = shadow('detail');
+    expect(fact(panel, t('page.occupationReference')).querySelector('dd')?.textContent).toBe(
+      'Synthetic Occupation',
     );
-    expect(shadow('detail').textContent).toContain('Synthetic provider unavailable');
-    expect(calls('page:analyze')).toHaveLength(1);
+    send.mockImplementation(async (message) =>
+      message.type === 'page:local'
+        ? { ok: true, reading: { ...reading, occupationTitle: undefined } }
+        : reply(message),
+    );
+    changeDetail('22');
+    history.replaceState(null, '', '/jobs?selectedjob=22');
+    await flush();
+    expect(
+      fact(shadow('detail'), t('page.occupationReference')).querySelector('dd')?.textContent,
+    ).toBe(t('page.undetermined'));
   });
 
-  it.each(['enabled', 'error'])(
-    'ignores an older %s preference response after a newer focus read',
-    async (older) => {
-      let finishOld!: (response: unknown) => void;
-      let reads = 0;
-      send.mockImplementation((message) => {
-        if (message.type === 'page:preferences' && reads++ === 0)
-          return new Promise((resolve) => (finishOld = resolve));
-        return Promise.resolve(reply(message));
-      });
-      await mount();
-      await act(async () => window.dispatchEvent(new Event('focus')));
-      await act(async () => {
-        finishOld(
-          older === 'enabled'
-            ? { ok: true, preferences: { provider: 'jev', autoAnalyze: true, ready: true } }
-            : { ok: false, error: 'Outdated settings read failed' },
-        );
-      });
-      await flush(1_000);
-      expect(calls('page:preferences')).toHaveLength(2);
-      expect(calls('page:analyze')).toHaveLength(0);
-      expect(button(shadow('detail'), '分析岗位').disabled).toBe(true);
-      expect(shadow('detail').querySelector('[role="alert"]')).toBeNull();
-    },
-  );
+  it('shows visa verdicts without quoting the ad underneath', async () => {
+    const statement = 'Applicants must have the right to work in New Zealand.';
+    const body = `${description}\n${statement}`;
+    const expected = localAnalysis('Software Engineer', body);
+    expect(expected.visa.workRights.choice).toBe('required');
+    expect(expected.visa.sponsorship.choice).toBe('not_mentioned');
+    setBody(body);
+    await mount();
+    await flush();
+    const panel = shadow('detail');
 
-  it('shows retry progress only for the current request and clears it on success', async () => {
-    preferences.autoAnalyze = true;
-    const listeners = new Set<(message: unknown, sender: chrome.runtime.MessageSender) => void>();
-    Object.assign(chrome.runtime, {
-      onMessage: {
-        addListener: (listener: (message: unknown, sender: chrome.runtime.MessageSender) => void) =>
-          listeners.add(listener),
-        removeListener: (
-          listener: (message: unknown, sender: chrome.runtime.MessageSender) => void,
-        ) => listeners.delete(listener),
-      },
-    });
-    let complete!: (response: unknown) => void;
-    send.mockImplementation((message) =>
-      message.type === 'page:analyze'
-        ? new Promise((resolve) => {
-            complete = resolve;
-          })
-        : Promise.resolve(reply(message)),
+    const workRights = fact(panel, t('page.workRights'));
+    expect(workRights.querySelectorAll('dd')).toHaveLength(1);
+    expect(workRights.querySelector('dd')?.textContent).toBe(t('page.required'));
+    expect(workRights.textContent).not.toContain(statement);
+    // The wording stays available as a hover hint on the verdict and, for keyboard and touch
+    // readers, as a line that the verdict button reveals.
+    const verdict = workRights.querySelector<HTMLButtonElement>('dd > button');
+    expect(verdict?.getAttribute('title')).toBe(statement);
+    expect(verdict?.getAttribute('aria-expanded')).toBe('false');
+    act(() => verdict?.click());
+    expect(workRights.querySelector('dd q')?.textContent).toBe(statement);
+    expect(verdict?.getAttribute('aria-expanded')).toBe('true');
+
+    for (const label of [t('page.visaSupport'), t('page.residency')]) {
+      const cell = fact(panel, label);
+      expect(cell.querySelectorAll('dd')).toHaveLength(1);
+      expect(cell.querySelector('dd')?.textContent).toBe(t('page.notMentioned'));
+    }
+  });
+
+  it('labels a local experience estimate and prefers stated years', async () => {
+    const base = localAnalysis('Software Engineer', description);
+    const estimated: LocalReading = {
+      ...base,
+      prep: { ...base.prep, experience: [], estimate: { band: 'one_to_three', evidence: [] } },
+    };
+    send.mockImplementation(async (message) =>
+      message.type === 'page:local' ? { ok: true, reading: estimated } : reply(message),
     );
     await mount();
-    await flush(700);
-    const requestId = calls('page:analyze')[0]![0].requestId;
-    const progress = { type: 'page:analysis-retry', requestId, attempt: 1 };
-    const emit = async (message: unknown, senderId = chrome.runtime.id) => {
-      await act(async () => {
-        for (const listener of listeners) listener(message, { id: senderId });
-      });
-    };
-    await emit({ ...progress, requestId: crypto.randomUUID() });
-    await emit({ ...progress, attempt: 3 });
-    await emit(progress, 'other-extension');
-    expect(shadow('detail').querySelector('[role="status"]')?.textContent).toContain(
-      t('page.analysing'),
+    await flush();
+    const cell = fact(shadow('detail'), t('page.experience'));
+    expect(cell.querySelector('.experience-estimate-tag')?.textContent).toBe(
+      t('page.localEstimate'),
     );
-    await emit(progress);
-    expect(shadow('detail').querySelector('[role="status"]')?.textContent).toContain(
-      t('page.retrying', { attempt: 1 }),
+    expect(cell.querySelector('dd')?.textContent).toContain(
+      t('page.yearsRange', { min: '1', max: '3' }),
     );
-    expect(shadow('detail').querySelector('[role="alert"]')).toBeNull();
-    await emit({ ...progress, attempt: 2 });
-    expect(shadow('detail').querySelector('[role="status"]')?.textContent).toContain(
-      t('page.retrying', { attempt: 2 }),
+
+    await act(async () => cleanup!());
+    send.mockImplementation(async (message) => reply(message));
+    setBody(`${description}\nAt least 3 years of software engineering experience required.`);
+    await mount();
+    await flush();
+    const stated = fact(shadow('detail'), t('page.experience'));
+    expect(stated.querySelector('.experience-estimate-tag')).toBeNull();
+    expect(stated.querySelector('dd')?.textContent).toContain(
+      t('page.yearsMinimum', { years: '3' }),
     );
-    await act(async () => complete({ ok: true, job: savedJob() }));
-    await emit(progress);
-    expect(shadow('detail').textContent).not.toContain(t('page.retrying', { attempt: 1 }));
-    expect(calls('page:analyze')).toHaveLength(1);
   });
 
+  it('shows a loading status while the local reading is pending', async () => {
+    send.mockImplementation((message) =>
+      message.type === 'page:local' ? new Promise(() => {}) : Promise.resolve(reply(message)),
+    );
+    await mount();
+    await flush(2_000);
+    const panel = shadow('detail');
+    expect(panel.querySelector('[role="status"]')?.textContent).toBe(t('page.prepLoading'));
+    expect(panel.querySelector('.prep-checklist')).toBeNull();
+    // Employer status needs no local reading.
+    expect(fact(panel, t('page.accreditedList')).querySelector('.tag')).not.toBeNull();
+    // Every cell is reserved up front so the grid does not jump when the reading lands.
+    expect(panel.querySelectorAll('.facts .fact')).toHaveLength(6);
+    expect(fact(panel, t('page.visaSupport')).querySelector('dd')?.textContent).toBe('…');
+  });
+
+  it.each([
+    ['a rejected reply', async () => ({ ok: false, error: 'Synthetic local failure' })],
+    [
+      'a synchronous send failure',
+      () => {
+        throw new Error('Synthetic local failure');
+      },
+    ],
+  ])('shows an alert instead of a checklist after %s', async (name, failure) => {
+    send.mockImplementation((message) =>
+      message.type === 'page:local' ? failure() : Promise.resolve(reply(message)),
+    );
+    await mount();
+    await flush();
+    const panel = shadow('detail');
+    const alert = panel.querySelector('[role="alert"]')!;
+    // Only the worker's own (localised) message is shown; a thrown send is a stale script.
+    expect(alert.firstChild?.textContent).toBe(
+      name === 'a rejected reply' ? 'Synthetic local failure' : t('page.refreshExtension'),
+    );
+    expect(alert.closest('details')).toBeNull();
+    // The facts say the reading failed instead of looking as if they were still loading.
+    expect(fact(panel, t('page.visaSupport')).querySelector('dd')?.textContent).toBe(
+      t('page.unreadable'),
+    );
+    expect(panel.querySelector('[role="status"]')).toBeNull();
+    expect(panel.querySelector('.prep-checklist')).toBeNull();
+    expect(calls('page:local')).toHaveLength(1);
+
+    // Retry asks the worker again from the same panel.
+    send.mockImplementation((message) => Promise.resolve(reply(message)));
+    await act(async () => button(panel, t('page.retry')).click());
+    await flush();
+    expect(calls('page:local')).toHaveLength(2);
+    expect(panel.querySelector('[role="alert"]')).toBeNull();
+    expect(panel.querySelector('.prep-checklist')).not.toBeNull();
+  });
+
+  it('keeps the settings and collapse controls in the header with only details collapsed', async () => {
+    setBody(requirementsBody);
+    await mount();
+    await flush();
+    const panel = shadow('detail');
+    const header = panel.querySelector('header')!;
+    expect(header.textContent).toContain('RoleHarbour');
+    expect(header.textContent).toContain(t('page.overview'));
+    expect(Array.from(header.querySelectorAll('button'), (node) => node.textContent)).toEqual([
+      t('page.settings'),
+      t('page.collapse'),
+    ]);
+    const toggle = button(panel, t('page.collapse'));
+    expect(toggle.type).toBe('button');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    const body = panel.querySelector('.panel-body')!;
+    expect(toggle.getAttribute('aria-controls')).toBe(body.parentElement!.id);
+
+    const details = Array.from(panel.querySelectorAll<HTMLDetailsElement>('.panel-body details'));
+    expect(details.every((node) => !node.open)).toBe(true);
+    const list = panel.querySelector<HTMLDetailsElement>('details.list-details')!;
+    expect(list.querySelector(':scope > summary')?.textContent).toBe(t('page.listDetails'));
+    expect(list.textContent).toContain(t('page.listSource'));
+    expect(list.querySelectorAll('button')).toHaveLength(0);
+
+    // Closed <details> still contributes textContent in jsdom; inspect the main DOM
+    // separately to ensure the original wording and list provenance are not duplicated there.
+    const main = body.cloneNode(true) as HTMLElement;
+    main.querySelectorAll('details').forEach((node) => node.remove());
+    expect(main.querySelector('.facts')).not.toBeNull();
+    expect(main.querySelector('.prep-checklist')).not.toBeNull();
+    for (const hidden of [
+      'Python skills required.',
+      'Three years of engineering experience required.',
+      t('page.listSource'),
+    ])
+      expect(main.textContent).not.toContain(hidden);
+  });
+
+  it('keeps a collapsed job collapsed across remounts and other jobs expanded', async () => {
+    await mount();
+    await flush();
+    await act(async () => button(shadow('detail'), t('page.collapse')).click());
+    let toggle = button(shadow('detail'), t('page.expand'));
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(shadow('detail').querySelector('.panel-body')).toBeNull();
+    expect(shadow('detail').querySelector('header')).not.toBeNull();
+
+    // The collapsed region stays referable while hidden.
+    const controlled = toggle.getAttribute('aria-controls')!;
+    expect(shadow('detail').getElementById(controlled)?.hidden).toBe(true);
+
+    // SEEK re-rendering the pane removes the host; the same panel is put back, still collapsed.
+    const first = hosts('detail')[0]!;
+    first.remove();
+    await flush();
+    expect(hosts('detail')).toEqual([first]);
+    toggle = button(shadow('detail'), t('page.expand'));
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+    // A different job starts expanded.
+    changeDetail('22');
+    history.replaceState(null, '', '/jobs?selectedjob=22');
+    await flush();
+    expect(button(shadow('detail'), t('page.collapse')).getAttribute('aria-expanded')).toBe('true');
+
+    // Returning to job 11 keeps its choice; expanding it clears the memory.
+    changeDetail('11', 'Software Engineer');
+    history.replaceState(null, '', '/jobs?selectedjob=11');
+    await flush();
+    await act(async () => button(shadow('detail'), t('page.expand')).click());
+    expect(shadow('detail').querySelector('.panel-body')).not.toBeNull();
+    hosts('detail')[0]!.remove();
+    await flush();
+    expect(button(shadow('detail'), t('page.collapse')).getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('re-requests the local reading only when the job text changes', async () => {
+    let resolveEmployers!: (response: unknown) => void;
+    send.mockImplementation(async (message) =>
+      message.type === 'page:employers'
+        ? new Promise((resolve) => {
+            resolveEmployers = resolve;
+          })
+        : reply(message),
+    );
+    await mount();
+    const detailHost = hosts('detail')[0]!;
+    await flush();
+    const checklist = shadow('detail').querySelector('.prep-checklist');
+    expect(checklist).not.toBeNull();
+    await act(async () => {
+      resolveEmployers({
+        ok: true,
+        employers: [
+          {
+            query: 'Synthetic Employer',
+            status: 'not_found',
+            matches: [],
+            checkedAt: Date.now(),
+          },
+        ],
+      });
+    });
+    await flush(2_000);
+    expect(hosts('detail')).toEqual([detailHost]);
+    expect(shadow('detail').textContent).toContain(t('page.notMatched'));
+    expect(shadow('detail').querySelector('.prep-checklist')).toBe(checklist);
+    expect(calls('page:local')).toHaveLength(1);
+  });
+});
+
+describe('mounted SEEK integration on synthetic public DOM', () => {
   it('queries two-letter employer names from both cards and details', async () => {
     document.body.innerHTML = fixture().replaceAll('Synthetic Employer', 'QX');
     await mount();
     await flush();
     expect(calls('page:employers').map(([message]) => message.names)).toEqual([['QX']]);
-  });
-
-  it('keeps the analysis control focusable while busy so a host dialog does not reclaim focus', async () => {
-    preferences.autoAnalyze = true;
-    let complete!: (response: unknown) => void;
-    send.mockImplementation((message) =>
-      message.type === 'page:analyze'
-        ? new Promise((resolve) => {
-            complete = resolve;
-          })
-        : Promise.resolve(reply(message)),
-    );
-    await mount();
-    await flush(0);
-    const panel = shadow('detail');
-    const control = button(panel, '分析岗位');
-    control.focus();
-    await flush(700);
-    expect(calls('page:analyze')).toHaveLength(1);
-    expect(control.disabled).toBe(false);
-    expect(control.getAttribute('aria-disabled')).toBe('true');
-    expect(control.type).toBe('button');
-    expect(panel.activeElement).toBe(control);
-    await act(async () => complete({ ok: true, job: savedJob() }));
-    expect(button(panel, '重新分析')).toBe(control);
-    expect(control.getAttribute('aria-disabled')).toBe('false');
-    expect(panel.activeElement).toBe(control);
   });
 
   it('does not start observers or messages for an already invalidated WXT context', async () => {
@@ -353,19 +474,29 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('handles a synchronous cancel failure during normal component teardown', async () => {
-    preferences.autoAnalyze = true;
-    send.mockImplementation((message) => {
-      if (message.type === 'page:analyze') return new Promise(() => {});
-      if (message.type === 'page:cancel') throw new Error('Extension context invalidated.');
-      return Promise.resolve(reply(message));
-    });
+  it('ignores a late local reading after normal teardown', async () => {
+    let resolveLocal!: (response: unknown) => void;
+    send.mockImplementation((message) =>
+      message.type === 'page:local'
+        ? new Promise((resolve) => {
+            resolveLocal = resolve;
+          })
+        : Promise.resolve(reply(message)),
+    );
     await mount();
-    await flush(700);
-    expect(calls('page:analyze')).toHaveLength(1);
-    await act(async () => cleanup!());
-    expect(calls('page:cancel')).toHaveLength(1);
+    await flush();
+    const panel = shadow('detail');
+    await act(async () => {
+      cleanup!();
+      cleanup = undefined;
+    });
+    await act(async () =>
+      resolveLocal({ ok: true, reading: localAnalysis('Software Engineer', description) }),
+    );
+    await flush(2_000);
     expect(hosts()).toHaveLength(0);
+    expect(panel.querySelector('.prep-checklist')).toBeNull();
+    expect(calls('page:local')).toHaveLength(1);
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -387,10 +518,10 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     expect(actions.parentElement?.id).toBe('feed-card');
     await flush(2_000);
     expect(hosts('card')).toEqual([host]);
-    expect(calls('page:analyze')).toHaveLength(0);
+    expect(calls('page:local')).toHaveLength(0);
   });
 
-  it('decorates cards and visible details without analysis or observer self-loops', async () => {
+  it('decorates cards and visible details without observer self-loops', async () => {
     await mount();
     const originalHosts = hosts();
     expect(hosts('card')).toHaveLength(1);
@@ -402,10 +533,22 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     expect(shadow('detail').textContent).not.toMatch(/简历匹配|检查简历|重新匹配|AI 评估/);
     await flush(2_000);
     expect(hosts()).toEqual(originalHosts);
-    expect(calls('page:badges')).toHaveLength(0);
-    expect(calls('page:preferences')).toHaveLength(1);
-    expect(calls('page:analyze')).toHaveLength(0);
-    expect(send.mock.calls.some(([message]) => message.type.includes('resume'))).toBe(false);
+    expect(calls('page:local')).toHaveLength(1);
+    expect(send.mock.calls.every(([message]) => allowedTypes.has(message.type))).toBe(true);
+  });
+
+  it('labels card links with the job title and gives the toolbar one settings button', async () => {
+    await mount();
+    const link = shadow('card').querySelector<HTMLAnchorElement>('a.card-action')!;
+    expect(link.getAttribute('aria-label')).toBe(
+      t('page.viewRequirementsFor', { title: 'Software Engineer' }),
+    );
+    expect(link.getAttribute('aria-label')).toBe('查看“Software Engineer”的岗位要求');
+    expect(link.href).toBe('https://nz.seek.com/job/11#seek-filter');
+    expect(
+      Array.from(shadow('toolbar').querySelectorAll('button'), (node) => node.textContent),
+    ).toEqual([t('page.settings')]);
+    expect(shadow('toolbar').textContent).not.toContain('更新名单');
   });
 
   it('reconciles a reused card and rejects old details while the SPA URL advances', async () => {
@@ -422,12 +565,47 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     expect(oldDetailHost.isConnected).toBe(false);
     expect(hosts('detail')).toHaveLength(0);
     expect(shadow('card').querySelector('a')?.href).toBe('https://nz.seek.com/job/22#seek-filter');
+    expect(shadow('card').querySelector('a')?.getAttribute('aria-label')).toContain(
+      'Systems Administrator',
+    );
 
     changeDetail('22');
     await flush();
     expect(hosts('detail')).toHaveLength(1);
     expect(hosts()).toHaveLength(3);
-    expect(calls('page:analyze')).toHaveLength(0);
+    expect(calls('page:local').map(([message]) => message.title)).toEqual([
+      'Software Engineer',
+      'Systems Administrator',
+    ]);
+  });
+
+  it('updates the same job in place when SEEK fills in the advertiser or location late', async () => {
+    await mount();
+    await flush();
+    const host = hosts('detail')[0]!;
+    const checklist = shadow('detail').querySelector('.prep-checklist');
+    await act(async () => {
+      document.querySelector('[data-automation="advertiser-name"]')!.textContent =
+        'Synthetic Legal Employer';
+      document.querySelector('[data-automation="job-detail-location"]')!.textContent = 'Wellington';
+    });
+    await flush();
+    expect(hosts('detail')).toEqual([host]);
+    expect(shadow('detail').querySelector('.prep-checklist')).toBe(checklist);
+    expect(calls('page:local')).toHaveLength(1);
+    expect(calls('page:employers').flatMap(([message]) => message.names)).toContain(
+      'Synthetic Legal Employer',
+    );
+  });
+
+  it('waits for a background tab to become visible before checking employers', async () => {
+    setVisibility('hidden');
+    await mount();
+    await flush();
+    expect(calls('page:employers')).toHaveLength(0);
+    await act(async () => setVisibility('visible'));
+    await flush();
+    expect(calls('page:employers')).toHaveLength(1);
   });
 
   it('removes stale card and detail mounts when the host page removes their source DOM', async () => {
@@ -440,28 +618,87 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     document.querySelector('main')!.remove();
     await flush();
     expect(hosts()).toHaveLength(0);
-    expect(calls('page:analyze')).toHaveLength(0);
   });
 
-  it('does not submit analysis, grant cloud consent or open settings from synthetic clicks', async () => {
+  it('does not open settings from synthetic clicks', async () => {
     await mount();
-    const panel = shadow('detail');
-    const consent = panel.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
-    const jev = button(panel, '分析岗位');
+    await flush();
     await act(async () => {
-      consent.click();
-      jev.click();
-      button(panel, '同意并开启').click();
-      button(shadow('toolbar'), '更新名单').click();
-      button(panel, '设置').click();
-      button(shadow('toolbar'), '设置').click();
+      button(shadow('detail'), t('page.settings')).click();
+      button(shadow('toolbar'), t('page.settings')).click();
     });
-    expect(consent.checked).toBe(false);
-    expect(jev.disabled).toBe(true);
-    expect(calls('page:auto')).toHaveLength(0);
-    expect(calls('page:analyze')).toHaveLength(0);
-    expect(calls('page:open-workspace')).toHaveLength(0);
-    expect(calls('page:employers').some(([message]) => message.force)).toBe(false);
+    await flush();
+    expect(calls('page:open-settings')).toHaveLength(0);
+    expect(shadow('detail').querySelector('[role="alert"]')).toBeNull();
+    expect(calls('page:employers').some(([message]) => 'force' in message)).toBe(false);
+  });
+
+  it('keeps clicks inside the Shadow roots from SEEK but lets keydown reach the page', async () => {
+    await mount();
+    await flush();
+    const seen: string[] = [];
+    const record = (event: Event) => seen.push(event.type);
+    for (const type of ['click', 'pointerdown', 'keydown']) document.addEventListener(type, record);
+    try {
+      for (const kind of ['detail', 'toolbar']) {
+        const target = button(shadow(kind), t('page.settings'));
+        await act(async () => {
+          target.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
+          target.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+          target.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+          );
+        });
+      }
+      const link = shadow('card').querySelector('a')!;
+      link.addEventListener('click', (event) => event.preventDefault());
+      await act(async () => {
+        link.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        link.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, composed: true }),
+        );
+      });
+    } finally {
+      for (const type of ['click', 'pointerdown', 'keydown'])
+        document.removeEventListener(type, record);
+    }
+    expect(seen).toEqual(['keydown', 'keydown', 'keydown']);
+  });
+
+  it('scrolls the panel into view once per job for the card link', async () => {
+    const scroll = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scroll,
+    });
+    try {
+      history.replaceState(null, '', '/jobs?selectedjob=11#seek-filter');
+      await mount();
+      expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: 'start', behavior: 'smooth' });
+      expect(scroll.mock.contexts[0]).toBe(hosts('detail')[0]);
+      expect(hosts('detail')[0]!.id).toBe('seek-filter');
+
+      // SEEK re-rendering the same job must not scroll again.
+      hosts('detail')[0]!.remove();
+      await flush();
+      expect(hosts('detail')).toHaveLength(1);
+      expect(scroll).toHaveBeenCalledTimes(1);
+
+      changeDetail('22');
+      history.replaceState(null, '', '/jobs?selectedjob=22#seek-filter');
+      await flush();
+      expect(scroll).toHaveBeenCalledTimes(2);
+      expect(scroll.mock.contexts[1]).toBe(hosts('detail')[0]);
+
+      // Without the card's fragment a new job does not scroll.
+      changeDetail('33');
+      history.replaceState(null, '', '/jobs?selectedjob=33');
+      await flush();
+      expect(hosts('detail')).toHaveLength(1);
+      expect(scroll).toHaveBeenCalledTimes(2);
+    } finally {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+    }
   });
 
   it('reconciles visibility changes without requiring a route or text mutation', async () => {
@@ -499,24 +736,6 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     expect(send).toHaveBeenCalledTimes(callsAtCleanup);
   });
 
-  it('handles a synchronous preferences send failure before the runtime poll runs', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-    send.mockImplementation((message) => {
-      if (message.type === 'page:preferences') throw new Error('Extension context invalidated.');
-      return Promise.resolve(reply(message));
-    });
-
-    await mount();
-    expect(chrome.runtime.id).toBe('test-extension-id');
-    expect(shadow('detail').querySelector('[role="alert"]')?.textContent).toContain(
-      'Extension context invalidated.',
-    );
-    expect(button(shadow('detail'), t('page.analyse')).disabled).toBe(true);
-    expect(calls('page:preferences')).toHaveLength(1);
-    await flush(499);
-    expect(calls('page:analyze')).toHaveLength(0);
-  });
-
   it('tears down an invalidated runtime and never remounts after focus, routes or mutations', async () => {
     await mount();
     const allMountedHosts = hosts();
@@ -545,34 +764,31 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('ignores an invalidated automatic analysis without sending a cancellation to the dead runtime', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-    let resolveAnalysis!: (response: unknown) => void;
-    send.mockImplementation(async (message) =>
-      message.type === 'page:analyze'
+  it('ignores a pending local reading after runtime invalidation', async () => {
+    let resolveLocal!: (response: unknown) => void;
+    send.mockImplementation((message) =>
+      message.type === 'page:local'
         ? new Promise((resolve) => {
-            resolveAnalysis = resolve;
+            resolveLocal = resolve;
           })
-        : reply(message),
+        : Promise.resolve(reply(message)),
     );
     await mount();
-    await flush(700);
-    expect(calls('page:analyze')).toHaveLength(1);
+    await flush();
+    expect(calls('page:local')).toHaveLength(1);
     const panel = shadow('detail');
     Object.defineProperty(chrome.runtime, 'id', { configurable: true, value: undefined });
     await flush(300);
 
     expect(hosts()).toHaveLength(0);
-    expect(calls('page:cancel')).toHaveLength(0);
     const callsAtInvalidation = send.mock.calls.length;
     await act(async () => {
-      resolveAnalysis({ ok: true, job: savedJob() });
+      resolveLocal({ ok: true, reading: localAnalysis('Software Engineer', description) });
       window.dispatchEvent(new Event('focus'));
     });
     await flush(2_000);
     expect(hosts()).toHaveLength(0);
-    expect(panel.querySelector('.requirements')).toBeNull();
-    expect(calls('page:cancel')).toHaveLength(0);
+    expect(panel.querySelector('.prep-checklist')).toBeNull();
     expect(send).toHaveBeenCalledTimes(callsAtInvalidation);
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -587,12 +803,13 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
       value: { addListener, removeListener },
     });
     await mount();
-    expect(addListener).toHaveBeenCalledTimes(3);
+    // The page language bridge and the employer-list invalidation listener.
+    expect(addListener).toHaveBeenCalledTimes(2);
     const retainedListener = addListener.mock.calls[0]![0];
     Object.defineProperty(chrome.runtime, 'id', { configurable: true, value: undefined });
     await flush(500);
 
-    expect(removeListener).toHaveBeenCalledTimes(3);
+    expect(removeListener).toHaveBeenCalledTimes(2);
     expect(hosts()).toHaveLength(0);
     expect(vi.getTimerCount()).toBe(0);
     const callsAtInvalidation = send.mock.calls.length;
@@ -606,154 +823,19 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     await flush(2_000);
     expect(hosts()).toHaveLength(0);
     expect(send).toHaveBeenCalledTimes(callsAtInvalidation);
-    expect(removeListener).toHaveBeenCalledTimes(3);
-  });
-
-  it('waits 700 ms before one enabled automatic analysis and does not repeat after focus or reconciliation', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-    await mount();
-    await flush(699);
-    expect(calls('page:analyze')).toHaveLength(0);
-    await flush(1);
-    expect(calls('page:analyze')).toHaveLength(1);
-    expect(calls('page:analyze')[0]![0]).toMatchObject({
-      mode: 'jev',
-      automatic: true,
-      force: false,
-      draft: { sourceUrl: 'https://nz.seek.com/job/11', retainBody: false },
-    });
-    expect(shadow('detail').querySelector('.requirements')).not.toBeNull();
-    expect(shadow('detail').textContent).not.toContain('已读取本地缓存');
-    document.body.classList.add('host-layout-updated');
-    await act(async () => {
-      window.dispatchEvent(new Event('focus'));
-    });
-    await flush(2_000);
-    expect(calls('page:analyze')).toHaveLength(1);
-    expect(hosts('detail')).toHaveLength(1);
-  });
-
-  it('keeps analysis controls in the header and only employer information collapsed', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-    const skillText = 'Experience with React and TypeScript.';
-    const experienceText = 'At least 3 years of software engineering experience.';
-    const body = `${description} ${skillText} ${experienceText}`;
-    document.querySelector('[data-automation="jobAdDetails"]')!.textContent = body;
-    const entry = (text: string, id: string) => ({
-      text,
-      level: 'required' as const,
-      evidence: { id, text, start: body.indexOf(text), end: body.indexOf(text) + text.length },
-      confidence: 1,
-    });
-    const job = savedJob();
-    job.jev!.requirements = {
-      skills: [entry(skillText, 'skill-1')],
-      experience: [{ ...entry(experienceText, 'experience-1'), minYears: 3, maxYears: null }],
-      truncated: false,
-    };
-    send.mockImplementation(async (message) =>
-      message.type === 'page:analyze' ? { ok: true, job, cached: true } : reply(message),
-    );
-    await mount();
-    await flush(700);
-
-    const panel = shadow('detail');
-    const detailsControls = panel.querySelectorAll<HTMLDetailsElement>('.panel-body > details');
-    expect(detailsControls).toHaveLength(1);
-    const details = detailsControls[0]!;
-    expect(details.querySelector(':scope > summary')?.textContent).toBe('名单详情');
-    expect(details.open).toBe(false);
-    expect(details.hasAttribute('open')).toBe(false);
-    expect(details.textContent).not.toContain(skillText);
-    expect(details.textContent).not.toContain(experienceText);
-    expect(details.textContent).not.toContain('职位原文');
-    expect(details.querySelector('pre')).toBeNull();
-    expect(details.textContent).toContain('名单来源');
-    expect(Array.from(panel.querySelectorAll('h3'), (node) => node.textContent)).not.toContain(
-      '分析设置',
-    );
-    expect(panel.textContent).not.toContain('已读取本地缓存');
-    expect(panel.textContent).not.toContain('已有结果会重复使用');
-    expect(details.querySelectorAll('button')).toHaveLength(0);
-    expect(calls('page:employer-online')).toHaveLength(0);
-    expect(button(panel, '重新分析').closest('.panel-top')).not.toBeNull();
-    expect(panel.textContent).not.toContain('关闭自动分析');
-
-    // Closed <details> still contributes textContent in jsdom; inspect the main DOM
-    // separately to ensure implementation/provenance text is not duplicated there.
-    const main = panel.querySelector('.panel-body')!.cloneNode(true) as HTMLElement;
-    main.querySelectorAll('details').forEach((node) => node.remove());
-    expect(main.querySelector('.requirements')).not.toBeNull();
-    expect(Array.from(main.querySelectorAll('.skill-chip'), (node) => node.textContent)).toEqual([
-      'React',
-      'TypeScript',
-    ]);
-    expect(main.querySelector('.experience-line strong')?.textContent).toBe('至少 3 年');
-    const visa = panel.querySelector('.occupation-visa')!;
-    expect(visa.closest('details')).toBeNull();
-    expect(visa.textContent).toContain('职业参考：');
-    expect(Array.from(visa.querySelectorAll('.decisions b'), (node) => node.textContent)).toEqual([
-      '未说明',
-      '未说明',
-      '未说明',
-    ]);
-    expect(details.querySelector('.occupation-visa')).toBeNull();
-    for (const removed of ['经验原文', '技能原文', '部分条目未分析', 'AI 筛选的 JD 原文条目']) {
-      expect(panel.textContent).not.toContain(removed);
-    }
-    for (const hidden of [
-      skillText,
-      experienceText,
-      '名单来源',
-      '分析设置',
-      '已读取本地缓存',
-      'synthetic-model',
-      '当前 JD',
-      '使用 Jev 分析',
-    ]) {
-      expect(main.textContent).not.toContain(hidden);
-    }
-    expect(calls('page:analyze')).toHaveLength(1);
-  });
-
-  it('shows an automatic Jev experience estimate without displaying its source explanation', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-    const job = savedJob();
-    job.jev!.requirements!.experienceEstimate = {
-      band: 'one_to_three',
-      minYears: 1,
-      maxYears: 3,
-      confidence: 0.8,
-      evidence: [{ id: 'segment_1', text: description, start: 0, end: description.length }],
-    };
-    send.mockImplementation(async (message) =>
-      message.type === 'page:analyze' ? { ok: true, job } : reply(message),
-    );
-    await mount();
-    await flush(700);
-
-    const panel = shadow('detail');
-    const row = panel.querySelector('.experience-line')!;
-    expect(row.querySelector('strong')?.textContent).toBe('1–3 年');
-    expect(row.querySelector('.experience-estimate-tag')?.textContent).toBe('AI 预估');
-    expect(panel.querySelector('.experience-estimate-evidence')).toBeNull();
-    expect(panel.textContent).not.toContain('经验预估依据');
-    expect(panel.textContent).not.toContain('不是雇主明确要求');
-    await flush(2_000);
-    expect(calls('page:analyze')).toHaveLength(1);
+    expect(removeListener).toHaveBeenCalledTimes(2);
   });
 
   it.each([
-    ['matched', true, '已匹配'],
-    ['not_found', false, '未匹配'],
-    ['unavailable', false, '暂时无法查询'],
+    ['matched', '已匹配'],
+    ['not_found', '未匹配'],
+    ['unavailable', '暂时无法查询'],
   ] as const)(
     'renders %s employer results with a concise label on cards and details',
-    async (status, stale, label) => {
+    async (status, label) => {
       const employer: EmployerCheck = {
         query: 'Synthetic Employer',
         status,
-        stale,
         matches:
           status === 'matched'
             ? [
@@ -775,8 +857,9 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
       await mount();
       await flush();
       expect(shadow('card').querySelector('.employer .tag')?.textContent).toBe(label);
-      expect(shadow('detail').querySelector('.employer .tag')?.textContent).toBe(label);
-      expect(calls('page:analyze')).toHaveLength(0);
+      expect(
+        fact(shadow('detail'), t('page.accreditedList')).querySelector('.tag')?.textContent,
+      ).toBe(label);
     },
   );
 
@@ -784,7 +867,6 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     const employer: EmployerCheck = {
       query: 'Synthetic Employer',
       status: 'matched',
-      stale: false,
       matches: [
         {
           employerName: 'Synthetic Legal Employer',
@@ -814,7 +896,6 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
       const employer: EmployerCheck = {
         query: 'Synthetic Employer',
         status,
-        stale: false,
         matches: [
           {
             employerName: 'Synthetic Legal Employer',
@@ -831,147 +912,21 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
       );
       await mount();
       await flush();
-      for (const kind of ['card', 'detail'] as const) {
-        const badge = shadow(kind).querySelector('.employer .tag')!;
+      for (const badge of [
+        shadow('card').querySelector('.employer .tag')!,
+        fact(shadow('detail'), t('page.accreditedList')).querySelector('.tag')!,
+      ]) {
         expect(badge.textContent).toBe('需核实');
-        expect(badge.className).not.toContain('bg-[#e0f1eb]');
+        expect(badge.className).toContain('bg-rh-warning-bg');
+        expect(badge.className).not.toContain('bg-rh-positive-bg');
       }
-      expect(shadow('detail').textContent).toContain(employer.note);
-      const details = shadow('detail').querySelector('.panel-body > details')!;
+      const details = shadow('detail').querySelector('details.list-details')!;
+      expect(details.textContent).toContain(employer.note);
       expect(details.textContent).not.toContain('Synthetic Employer');
       expect(details.textContent).not.toContain('可能匹配：公司名称可能未写全');
       expect(details.textContent?.match(/Synthetic Legal Employer/g)).toHaveLength(1);
     },
   );
-
-  it('waits while hidden and restarts the full visibility delay when a hidden tab becomes visible', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-    visibility = 'hidden';
-    await mount();
-    await flush(2_000);
-    expect(calls('page:analyze')).toHaveLength(0);
-    await act(async () => {
-      setVisibility('visible');
-    });
-    await flush(350);
-    await act(async () => {
-      setVisibility('hidden');
-    });
-    await flush(2_000);
-    expect(calls('page:analyze')).toHaveLength(0);
-    await act(async () => {
-      setVisibility('visible');
-    });
-    await flush(699);
-    expect(calls('page:analyze')).toHaveLength(0);
-    await flush(1);
-    expect(calls('page:analyze')).toHaveLength(1);
-  });
-
-  it('does not automatically analyze when API readiness is false', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: false };
-    await mount();
-    await flush(2_000);
-    expect(calls('page:analyze')).toHaveLength(0);
-    expect(shadow('detail').textContent).toContain('配置 AI');
-  });
-
-  it('exposes a rejected preferences response without starting automatic analysis', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-    send.mockImplementation(async (message) =>
-      message.type === 'page:preferences'
-        ? { ok: false, error: '权限已更新，请刷新。' }
-        : reply(message),
-    );
-    await mount();
-    await flush(2_000);
-
-    const panel = shadow('detail');
-    const alert = panel.querySelector('[role="alert"]');
-    expect(alert?.textContent).toContain('权限已更新，请刷新。');
-    expect(alert?.closest('details')).toBeNull();
-    const details = panel.querySelector<HTMLDetailsElement>('.panel-details')!;
-    expect(details.open).toBe(false);
-    expect(details.querySelector('[role="status"]')).toBeNull();
-    expect(button(panel, t('page.analyse')).disabled).toBe(true);
-    expect(calls('page:analyze')).toHaveLength(0);
-  });
-
-  it('keeps one automatic attempt when a delayed employer result repaints the same detail', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-    let resolveEmployers!: (response: unknown) => void;
-    send.mockImplementation(async (message) =>
-      message.type === 'page:employers'
-        ? new Promise((resolve) => {
-            resolveEmployers = resolve;
-          })
-        : reply(message),
-    );
-    await mount();
-    const detailHost = hosts('detail')[0]!;
-    await flush(700);
-    expect(calls('page:analyze')).toHaveLength(1);
-    await act(async () => {
-      resolveEmployers({
-        ok: true,
-        employers: [
-          {
-            query: 'Synthetic Employer',
-            status: 'not_found',
-            matches: [],
-            checkedAt: Date.now(),
-            stale: false,
-          },
-        ],
-      });
-    });
-    await flush(2_000);
-    expect(hosts('detail')).toEqual([detailHost]);
-    expect(shadow('detail').textContent).toContain('未匹配');
-    expect(shadow('detail').querySelector('.requirements')).not.toBeNull();
-    expect(shadow('detail').textContent).not.toContain('已读取本地缓存');
-    expect(calls('page:analyze')).toHaveLength(1);
-  });
-
-  it('blocks synthetic manual clicks even when the Jev button is enabled', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-    visibility = 'hidden';
-    await mount();
-    const panel = shadow('detail');
-    expect(button(panel, '分析岗位').disabled).toBe(false);
-    await act(async () => {
-      button(panel, '分析岗位').click();
-    });
-    await flush(1_000);
-    expect(calls('page:analyze')).toHaveLength(0);
-    expect(calls('page:auto')).toHaveLength(0);
-  });
-
-  it('cancels the owning automatic request on unmount and ignores its late result', async () => {
-    preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-    let resolveAnalysis!: (response: unknown) => void;
-    send.mockImplementation(async (message) =>
-      message.type === 'page:analyze'
-        ? new Promise((resolve) => {
-            resolveAnalysis = resolve;
-          })
-        : reply(message),
-    );
-    await mount();
-    await flush(700);
-    const request = calls('page:analyze')[0]![0];
-    await act(async () => {
-      cleanup!();
-      cleanup = undefined;
-    });
-    expect(calls('page:cancel')).toEqual([[{ type: 'page:cancel', requestId: request.requestId }]]);
-    await act(async () => {
-      resolveAnalysis({ ok: true, job: savedJob() });
-    });
-    await flush(2_000);
-    expect(hosts()).toHaveLength(0);
-    expect(calls('page:analyze')).toHaveLength(1);
-  });
 
   it.each(['focus', 'list update'])(
     're-reads the local list after %s and ignores older responses',
@@ -994,7 +949,6 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
         status: 'matched',
         matches: [{ employerName: 'Synthetic Employer', tradingName: '', nzbn: '9429000000001' }],
         checkedAt: 1,
-        stale: false,
       };
       send.mockImplementation(async (message) => {
         if (message.type !== 'page:employers') return reply(message);
@@ -1033,7 +987,7 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
       expect(shadow('card').textContent).toContain('已匹配');
       expect(calls('page:employers')).toHaveLength(2);
       expect(calls('page:employers').every(([message]) => !('force' in message))).toBe(true);
-      expect(calls('page:analyze')).toHaveLength(0);
+      expect(calls('page:local')).toHaveLength(1);
     },
   );
 
@@ -1056,77 +1010,69 @@ describe('mounted SEEK integration on synthetic public DOM', () => {
     });
     await flush();
     expect(hosts()).toHaveLength(0);
-    expect(calls('page:analyze')).toHaveLength(0);
   });
 });
 
-it('renders an English SEEK panel with cached analysis and leaves the host language unchanged', async () => {
+it('renders an English SEEK panel from the local reading and leaves the host language unchanged', async () => {
   chrome.i18n = { getUILanguage: () => 'en-NZ' } as typeof chrome.i18n;
   const hostLanguage = document.documentElement.lang;
-  preferences = { provider: 'jev', autoAnalyze: true, ready: true };
   await mount();
-  await flush(700);
+  await flush();
   const panel = shadow('detail');
   expect(panel.textContent).toContain('Job overview');
   expect(panel.textContent).toContain('Experience');
   expect(panel.textContent).toContain('Not stated');
   expect(panel.textContent).not.toMatch(/\p{Script=Han}/u);
   expect(button(panel, 'Settings')).toBeDefined();
+  expect(button(panel, 'Show less').getAttribute('aria-expanded')).toBe('true');
   expect(panel.querySelector('[lang="en"]')).not.toBeNull();
   expect(document.documentElement.lang).toBe(hostLanguage);
-  expect(calls('page:analyze')).toHaveLength(1);
-  expect(calls('page:analyze')[0]![0].draft.body).toBe(description);
-  expect(calls('page:analyze')[0]![0].draft.title).toBe('Software Engineer');
+  expect(calls('page:local')).toEqual([
+    [{ type: 'page:local', title: 'Software Engineer', body: description }],
+  ]);
 });
 
-it('changes live panel, card and toolbar language without losing cached analysis or resubmitting', async () => {
-  preferences = { provider: 'jev', autoAnalyze: true, ready: true };
-  const skillText = 'Experience with React and TypeScript.';
-  const body = `${description} ${skillText}`;
-  document.querySelector('[data-automation="jobAdDetails"]')!.textContent = body;
-  const job = savedJob();
-  job.jev!.requirements!.skills = [
-    {
-      text: skillText,
-      level: 'required',
-      confidence: 1,
-      evidence: {
-        id: 'skill-1',
-        text: skillText,
-        start: body.indexOf(skillText),
-        end: body.indexOf(skillText) + skillText.length,
-      },
-    },
-  ];
-  const originalJob = JSON.stringify(job);
-  send.mockImplementation(async (message) =>
-    message.type === 'page:analyze' ? { ok: true, job, cached: true } : reply(message),
-  );
+it('changes live panel, card and toolbar language without losing the reading or resubmitting', async () => {
+  setBody(requirementsBody);
   const originalHostLanguage = document.documentElement.getAttribute('lang');
   document.documentElement.lang = 'mi';
   try {
     await mount();
-    await flush(700);
+    await flush();
     const mountedHosts = hosts();
     const panel = shadow('detail');
-    const requirementsNode = panel.querySelector('.requirements');
-    expect(requirementsNode).not.toBeNull();
+    const checklist = panel.querySelector('.prep-checklist');
+    expect(checklist).not.toBeNull();
     expect(panel.textContent).toContain('岗位速览');
-    expect(shadow('card').textContent).not.toContain('已分析');
-    expect(calls('page:analyze')).toHaveLength(1);
+    expect(calls('page:local')).toHaveLength(1);
 
-    for (const [locale, overview, cardLink, analysed, toolbarText] of [
-      ['ja', '求人概要', '応募要件を見る →', '分析済み', '雇用主リストとの照合 · 求人 1 件'],
-      ['ko', '채용 공고 요약', '지원 요건 보기 →', '분석 완료', '고용주 목록 대조 · 공고 1개'],
+    for (const [locale, overview, cardLink, cardLabel, toolbarText] of [
+      [
+        'ja',
+        '求人概要',
+        '応募要件を見る →',
+        '「Software Engineer」の応募要件を見る',
+        '雇用主リストとの照合 · 求人 1 件',
+      ],
+      [
+        'ko',
+        '채용 공고 요약',
+        '지원 요건 보기 →',
+        '"Software Engineer" 지원 요건 보기',
+        '고용주 목록 대조 · 공고 1개',
+      ],
     ] as const) {
       await act(async () => applyLanguagePreference(locale));
       await flush(2_000);
       expect(hosts()).toEqual(mountedHosts);
       expect(shadow('detail')).toBe(panel);
-      expect(panel.querySelector('.requirements')).toBe(requirementsNode);
+      expect(panel.querySelector('.prep-checklist')).toBe(checklist);
       expect(panel.textContent).toContain(overview);
+      expect(panel.querySelector('.prep-checklist')?.textContent).toContain('Python');
       expect(shadow('card').querySelector('.card-action')?.textContent).toBe(cardLink);
-      expect(shadow('card').textContent).not.toContain(analysed);
+      expect(shadow('card').querySelector('.card-action')?.getAttribute('aria-label')).toBe(
+        cardLabel,
+      );
       expect(shadow('toolbar').textContent).toContain(toolbarText);
       for (const kind of ['detail', 'card', 'toolbar']) {
         const container = shadow(kind).querySelector('div[lang]');
@@ -1134,16 +1080,10 @@ it('changes live panel, card and toolbar language without losing cached analysis
         expect(container?.getAttribute('lang')).toBe(locale);
       }
       expect(document.documentElement.lang).toBe('mi');
-      expect(Array.from(panel.querySelectorAll('.skill-chip'), (node) => node.textContent)).toEqual(
-        ['React', 'TypeScript'],
+      expect(calls('page:local')).toHaveLength(1);
+      expect(document.querySelector('[data-automation="jobAdDetails"]')?.textContent).toBe(
+        requirementsBody,
       );
-      expect(panel.querySelector('.occupation-visa')).not.toBeNull();
-      expect(calls('page:analyze')).toHaveLength(1);
-      expect(calls('page:cancel')).toHaveLength(0);
-      expect(document.querySelector('[data-automation="jobAdDetails"]')?.textContent).toBe(body);
-      expect(calls('page:analyze')[0]![0].draft.body).toBe(body);
-      expect(calls('page:analyze')[0]![0].draft.title).toBe('Software Engineer');
-      expect(JSON.stringify(job)).toBe(originalJob);
     }
   } finally {
     if (originalHostLanguage === null) document.documentElement.removeAttribute('lang');

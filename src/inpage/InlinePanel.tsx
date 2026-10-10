@@ -1,36 +1,87 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
+import { Settings } from 'lucide-react';
 import { t } from '../i18n';
-import type { JobDraft, ResultMessage, SavedJob } from '../core/schema';
-import { occupations } from '../rules';
-import type { PagePreferences } from '../storage/settings';
+import type { JobDraft } from '../core/schema';
+import type { LocalReading } from '../core/local-analysis';
+import type { LocalDecision } from '../local-engine/types';
 import type { EmployerCheck } from '../employers';
-import { RequirementsView } from '../ui/RequirementsView';
-import { BasicOverview } from './BasicOverview';
-import { EmployerBadge, EmployerDetails } from './EmployerBadge';
-import { readSeekDetail } from './seek';
-import { buttonStyle, focusRing, primaryButtonStyle, quietButtonStyle } from './styles';
 import { isPageRuntimeAvailable, sendPageMessage } from '../core/page-runtime';
-import { analysisRetryMessageSchema } from '../core/page-messages';
+import { EmployerDetails, EmployerTag } from './EmployerBadge';
+import { PrepChecklist, experienceSummary } from './PrepChecklist';
+import { evidenceToggleStyle, focusRing, hint, pillStyle, quietButtonStyle } from './styles';
+import { isUserAction, openSettings } from './actions';
 
-export function sameSnapshot(a: JobDraft | null, b: JobDraft): boolean {
+/** Collapsed jobs survive SEEK re-rendering the detail pane (which remounts the panel). */
+const collapsedJobs = new Set<string>();
+const pending = <span className="font-normal text-rh-muted">…</span>;
+const unreadable = () => <span className="font-normal text-rh-muted">{t('page.unreadable')}</span>;
+
+type Tone = 'positive' | 'caution' | 'quiet';
+const toneStyle: Record<Tone, string> = {
+  positive: pillStyle.positive,
+  caution: pillStyle.warning,
+  quiet: 'font-normal text-rh-muted',
+};
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
-    !!a &&
-    a.sourceUrl === b.sourceUrl &&
-    a.title === b.title &&
-    a.body === b.body &&
-    a.employer === b.employer &&
-    a.location === b.location
+    <div className="fact grid min-w-0 content-start gap-[2px] rounded-[10px] bg-rh-surface px-3 py-[9px]">
+      <dt className="text-[11px] leading-[1.5] text-rh-muted">{label}</dt>
+      <dd className="m-0 min-w-0 text-[13px] leading-[1.5] font-semibold text-rh-text [overflow-wrap:anywhere]">
+        {children}
+      </dd>
+    </div>
   );
 }
-export function isUserAction(event: { isTrusted: boolean }): boolean {
-  return event.isTrusted;
-}
-export async function openWorkspace(section?: 'settings') {
-  const response = await sendPageMessage({
-    type: 'page:open-workspace',
-    ...(section ? { section } : {}),
-  });
-  if (!response?.ok) throw new Error(response?.error ?? t('page.openToolbar'));
+
+/** One visa dimension as a coloured verdict; the ad's wording is a hover hint, not more text. */
+function VisaFact<C extends string>({
+  label,
+  decision,
+  names,
+  tones,
+  missing,
+}: {
+  label: string;
+  decision?: LocalDecision<C | 'not_mentioned' | 'conflict'>;
+  names: Record<C | 'not_mentioned' | 'conflict', string>;
+  tones: Partial<Record<C, Tone>>;
+  /** Shown while there is no reading: "…" while loading, "unavailable" after a failure. */
+  missing: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!decision) return <Fact label={label}>{missing}</Fact>;
+  const { choice } = decision;
+  const tone: Tone =
+    choice === 'not_mentioned'
+      ? 'quiet'
+      : choice === 'conflict'
+        ? 'caution'
+        : (tones[choice as C] ?? 'caution');
+  const quote = hint(decision.evidence[0]?.text);
+  if (!quote)
+    return (
+      <Fact label={label}>
+        <span className={toneStyle[tone]}>{names[choice]}</span>
+      </Fact>
+    );
+  // The ad's wording is a hover hint and, for keyboard and touch, a click-to-show line.
+  return (
+    <Fact label={label}>
+      <button
+        type="button"
+        className={`${evidenceToggleStyle} ${toneStyle[tone]}`}
+        title={quote}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {names[choice]}
+      </button>
+      {open && (
+        <q className="mt-1 block text-[11px] leading-[1.5] font-normal text-rh-muted">{quote}</q>
+      )}
+    </Fact>
+  );
 }
 
 export function InlinePanel({
@@ -40,405 +91,195 @@ export function InlinePanel({
   draft: JobDraft;
   employerCheck?: EmployerCheck;
 }) {
-  const [job, setJob] = useState<SavedJob | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [retryAttempt, setRetryAttempt] = useState(0);
-  const [message, setMessage] = useState('');
-  const [hasError, setHasError] = useState(false);
-  const [allowCloud, setAllowCloud] = useState(false);
-  const [preferences, setPreferences] = useState<PagePreferences | null>(null);
-  const canAnalyze = !!preferences?.ready && (allowCloud || !!preferences.autoAnalyze);
-  const decisions = job?.jev;
-  const requirements = decisions?.requirements;
-  const [savingAuto, setSavingAuto] = useState(false);
-  const [expanded, setExpanded] = useState(true);
-  const pending = useRef<string | null>(null);
-  const preferencesRevision = useRef(0);
-  const preferencesChanging = useRef(false);
-  const alive = useRef(true);
-  const autoAttempted = useRef(false);
-  const runRef = useRef<(automatic?: boolean, force?: boolean) => Promise<void>>(
-    async () => undefined,
-  );
-  const jobId = draft.sourceUrl.split('/').pop()!;
+  const jobId = draft.sourceUrl;
+  const [settingsError, setSettingsError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [expanded, setExpanded] = useState(() => !collapsedJobs.has(jobId));
+  const bodyId = useId();
+  // The result is keyed to the request it answers, so a new job or retry shows "…" again
+  // without resetting state inside the effect.
+  const request = `${attempt}\n${draft.title}\n${draft.body}`;
+  const [result, setResult] = useState<{
+    request: string;
+    reading: LocalReading | null;
+    error: string;
+  } | null>(null);
+  const reading = result?.request === request ? result.reading : null;
+  const readError = result?.request === request ? result.error : '';
 
   useEffect(() => {
-    const onRetry = (message: unknown, sender: chrome.runtime.MessageSender) => {
-      if (
-        !alive.current ||
-        !isPageRuntimeAvailable() ||
-        sender.id !== chrome.runtime.id ||
-        sender.tab
-      )
-        return;
-      const parsed = analysisRetryMessageSchema.safeParse(message);
-      if (
-        parsed.success &&
-        parsed.data.requestId === pending.current &&
-        sameSnapshot(readSeekDetail(document, jobId), draft)
-      )
-        setRetryAttempt(parsed.data.attempt);
-    };
-    const messages = chrome.runtime.onMessage;
-    messages?.addListener(onRetry);
+    let current = true;
+    if (!isPageRuntimeAvailable()) return;
+    void sendPageMessage({ type: 'page:local', title: draft.title, body: draft.body }).then(
+      (response) => {
+        if (!current) return;
+        if (response?.ok && response.reading)
+          setResult({ request, reading: response.reading as LocalReading, error: '' });
+        // The worker's message is already localised; anything else means a stale script.
+        else
+          setResult({
+            request,
+            reading: null,
+            error: response?.error ?? t('page.refreshExtension'),
+          });
+      },
+      () => {
+        if (current) setResult({ request, reading: null, error: t('page.refreshExtension') });
+      },
+    );
     return () => {
-      try {
-        messages?.removeListener(onRetry);
-      } catch {
-        // Extension reloads can invalidate the listener API during unmount.
-      }
+      current = false;
     };
-  }, [draft, jobId]);
+  }, [request, draft.title, draft.body]);
 
-  useEffect(() => {
-    alive.current = true;
-    const load = () => {
-      if (!alive.current || !isPageRuntimeAvailable() || preferencesChanging.current) return;
-      const revision = ++preferencesRevision.current;
-      void sendPageMessage({ type: 'page:preferences' })
-        .then((response) => {
-          if (!alive.current || revision !== preferencesRevision.current) return;
-          if (!response?.ok || !response.preferences)
-            throw new Error(response?.error ?? t('page.settingsReadError'));
-          setPreferences(response.preferences);
-        })
-        .catch((error) => {
-          if (alive.current && revision === preferencesRevision.current) {
-            setMessage(error instanceof Error ? error.message : t('page.refreshExtension'));
-            setHasError(true);
-          }
-        });
-    };
-    load();
-    window.addEventListener('focus', load);
-    return () => {
-      alive.current = false;
-      preferencesRevision.current++;
-      window.removeEventListener('focus', load);
-      if (pending.current && isPageRuntimeAvailable())
-        void sendPageMessage({ type: 'page:cancel', requestId: pending.current }).catch(
-          () => undefined,
-        );
-    };
-  }, []);
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const start = () => {
-      clearTimeout(timer);
-      if (
-        preferences?.autoAnalyze &&
-        preferences.ready &&
-        !autoAttempted.current &&
-        document.visibilityState === 'visible'
-      ) {
-        timer = setTimeout(() => {
-          if (
-            !alive.current ||
-            !isPageRuntimeAvailable() ||
-            autoAttempted.current ||
-            pending.current ||
-            document.visibilityState !== 'visible'
-          )
-            return;
-          autoAttempted.current = true;
-          void runRef.current(true);
-        }, 700);
-      }
-    };
-    start();
-    document.addEventListener('visibilitychange', start);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('visibilitychange', start);
-    };
-  }, [preferences?.autoAnalyze, preferences?.ready]);
+  function toggle() {
+    const next = !expanded;
+    if (next) collapsedJobs.delete(jobId);
+    else collapsedJobs.add(jobId);
+    setExpanded(next);
+  }
 
-  async function run(automatic = false, force = false) {
-    if (
-      !alive.current ||
-      !isPageRuntimeAvailable() ||
-      pending.current ||
-      !preferences?.ready ||
-      !(automatic || allowCloud || preferences.autoAnalyze)
-    )
-      return;
-    if (!sameSnapshot(readSeekDetail(document, jobId), draft)) {
-      setMessage(t('page.jobChanged'));
-      setHasError(true);
-      return;
-    }
-    const requestId = crypto.randomUUID();
-    pending.current = requestId;
-    setBusy(true);
-    setRetryAttempt(0);
-    setMessage('');
-    setHasError(false);
-    try {
-      const surface = new URL(location.href).pathname === '/' ? 'dialog' : 'page';
-      const response = (await sendPageMessage({
-        type: 'page:analyze',
-        requestId,
-        draft,
-        mode: 'jev',
-        surface,
-        automatic,
-        force,
-      })) as ResultMessage;
-      if (!alive.current || !sameSnapshot(readSeekDetail(document, jobId), draft)) return;
-      if (!response?.ok || !response.job)
-        throw new Error(response?.error ?? t('page.refreshConnection'));
-      setJob(response.job);
-    } catch (error) {
-      if (alive.current) {
-        setMessage(error instanceof Error ? error.message : t('page.analysisFailed'));
-        setHasError(true);
-      }
-    } finally {
-      pending.current = null;
-      if (alive.current) setBusy(false);
-    }
-  }
-  runRef.current = run;
-  function analyze(event: MouseEvent, force = false) {
-    if (isUserAction(event.nativeEvent)) {
-      autoAttempted.current = true;
-      void run(false, force);
-    }
-  }
-  async function toggleAuto(event: MouseEvent) {
-    if (
-      !isUserAction(event.nativeEvent) ||
-      !alive.current ||
-      !isPageRuntimeAvailable() ||
-      preferencesChanging.current
-    )
-      return;
-    preferencesChanging.current = true;
-    setSavingAuto(true);
-    const enabled = !preferences?.autoAnalyze;
-    const revision = ++preferencesRevision.current;
-    try {
-      const response = await sendPageMessage({ type: 'page:auto', enabled, provider: 'jev' });
-      if (!alive.current || revision !== preferencesRevision.current) return;
-      if (!response?.ok) throw new Error(response?.error ?? t('page.settingsFailed'));
-      setPreferences(response.preferences);
-      if (enabled) autoAttempted.current = false;
-      else if (pending.current)
-        await sendPageMessage({ type: 'page:cancel', requestId: pending.current });
-    } catch (error) {
-      if (!alive.current || revision !== preferencesRevision.current) return;
-      setMessage(error instanceof Error ? error.message : t('page.settingsFailed'));
-      setHasError(true);
-    } finally {
-      preferencesChanging.current = false;
-      if (alive.current) setSavingAuto(false);
-    }
-  }
-  function manage(event: MouseEvent) {
-    if (isUserAction(event.nativeEvent))
-      void openWorkspace('settings').catch((error) => {
-        if (!alive.current) return;
-        setMessage(String(error.message ?? error));
-        setHasError(true);
-      });
-  }
+  const experience = reading && experienceSummary(reading.prep);
+  const missing = readError ? unreadable() : pending;
   return (
     <section
-      className="panel my-5 overflow-hidden rounded-[14px] border border-rh-border bg-white shadow-[0_5px_22px_#051a4908]"
+      className="my-5 overflow-hidden rounded-[14px] border border-rh-border bg-white shadow-[0_5px_22px_#051a4908]"
       aria-label={t('page.panelLabel')}
     >
-      <header className="panel-top flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-rh-border bg-rh-surface px-5 py-3 max-[480px]:px-[14px]">
-        <span className="flex min-w-0 max-w-full flex-wrap items-baseline gap-x-[10px] gap-y-1 text-[15px] leading-[1.5] font-bold tracking-normal text-rh-navy">
+      <header className="flex items-center justify-between gap-3 border-b border-rh-border px-5 py-3 max-[480px]:px-[14px]">
+        <h2 className="m-0 flex min-w-0 flex-wrap items-baseline gap-x-[10px] text-[15px] leading-[1.5] font-bold text-rh-navy">
           RoleHarbour
-          <small className="text-[12px] font-medium tracking-normal text-rh-muted">
-            {t('page.overview')}
-          </small>
-        </span>
-        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-1 gap-y-1">
-          {preferences && !preferences.ready ? (
-            <button
-              className={`${buttonStyle} min-h-[32px] max-w-full px-3 whitespace-normal [overflow-wrap:anywhere]`}
-              onClick={manage}
-            >
-              {t('page.configureAi')}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={`${primaryButtonStyle} min-h-[32px] max-w-full px-3 whitespace-normal [overflow-wrap:anywhere]`}
-              // Keep focus inside SEEK's dialog while a request is pending. Native
-              // disabled blurs this button and can make its focus trap scroll away.
-              disabled={!canAnalyze}
-              aria-disabled={busy || !canAnalyze}
-              title={t('page.apiUsage')}
-              onClick={(event) => analyze(event, !!job?.jev)}
-            >
-              {t(job?.jev ? 'page.reanalyse' : 'page.analyse')}
-            </button>
-          )}
+          <span className="text-[12px] font-medium text-rh-muted">{t('page.overview')}</span>
+        </h2>
+        <div className="flex shrink-0 items-center gap-1">
           <button
-            className={`${quietButtonStyle} min-h-[32px] max-w-full px-2 whitespace-normal [overflow-wrap:anywhere]`}
-            onClick={manage}
+            type="button"
+            className={`${quietButtonStyle} inline-flex items-center gap-1 px-2`}
+            onClick={(event) => {
+              if (isUserAction(event.nativeEvent)) void openSettings().then(setSettingsError);
+            }}
           >
+            <Settings size={14} aria-hidden="true" />
             {t('page.settings')}
           </button>
           <button
-            className={`${quietButtonStyle} min-h-[32px] max-w-full px-2 whitespace-normal [overflow-wrap:anywhere]`}
-            onClick={() => setExpanded(!expanded)}
+            type="button"
+            className={`${quietButtonStyle} px-2`}
+            onClick={toggle}
             aria-expanded={expanded}
+            aria-controls={bodyId}
           >
             {expanded ? t('page.collapse') : t('page.expand')}
           </button>
         </div>
       </header>
-      {expanded && (
-        <div className="panel-body px-5 pt-5 pb-3 max-[480px]:px-[14px] max-[480px]:pt-4">
-          <EmployerBadge employer={draft.employer} check={employerCheck} />
-          {busy && (
-            <div className="my-3 flex items-center justify-between gap-3 text-[12px]" role="status">
-              <span>
-                {retryAttempt ? t('page.retrying', { attempt: retryAttempt }) : t('page.analysing')}
-              </span>
-              <button
-                className={`${quietButtonStyle} shrink-0 px-0 whitespace-nowrap`}
-                onClick={(event) => {
-                  if (isUserAction(event.nativeEvent) && pending.current)
-                    void sendPageMessage({
-                      type: 'page:cancel',
-                      requestId: pending.current,
-                    }).catch((error) => {
-                      if (!alive.current) return;
-                      setMessage(
-                        error instanceof Error ? error.message : t('page.refreshExtension'),
-                      );
-                      setHasError(true);
-                    });
-                }}
-              >
-                {t('page.stop')}
-              </button>
-            </div>
-          )}
-          {requirements ? (
-            <RequirementsView requirements={requirements} />
-          ) : (
-            <BasicOverview body={draft.body} />
-          )}
-          {decisions && (
-            <section
-              className="occupation-visa mt-5 border-t border-rh-border pt-4 text-[13px] leading-[1.6]"
-              aria-label={t('page.occupationVisa')}
-            >
-              <h3 className="mb-2 text-[13px] font-bold text-rh-text">
-                {t('page.occupationVisa')}
-              </h3>
-              <p className="mb-3 text-rh-muted [overflow-wrap:anywhere]">
-                {t('page.occupationReference')}
-                <strong className="font-semibold text-rh-text">
-                  {occupations.find((o) => o.id === job?.jev?.occupation.choice)?.title ??
-                    t('page.undetermined')}
-                </strong>
-              </p>
-              <div className="decisions grid gap-2 rounded-[8px] bg-rh-surface px-3 py-[10px] text-[12px]">
-                {[
-                  [
-                    t('page.visaSupport'),
-                    {
-                      supported: t('page.visaSupported'),
-                      not_supported: t('page.visaUnsupported'),
-                      not_mentioned: t('page.notMentioned'),
-                      conflict: t('page.conflicting'),
-                    }[decisions.sponsorship.choice],
-                  ],
-                  [
-                    t('page.workRights'),
-                    {
-                      required: t('page.required'),
-                      not_required: t('page.notRequired'),
-                      not_mentioned: t('page.notMentioned'),
-                      conflict: t('page.conflicting'),
-                    }[decisions.workRights.choice],
-                  ],
-                  [
-                    t('page.residency'),
-                    {
-                      citizen_or_resident_only: t('page.residencyRestricted'),
-                      not_mentioned: t('page.notMentioned'),
-                      conflict: t('page.conflicting'),
-                    }[decisions.residency.choice],
-                  ],
-                ].map(([label, value]) => (
-                  <span
-                    key={label}
-                    className="grid grid-cols-[minmax(100px,0.34fr)_minmax(0,1fr)] items-baseline gap-x-4 text-rh-muted"
-                  >
-                    {label}
-                    <b className="font-semibold text-rh-text [overflow-wrap:anywhere]">{value}</b>
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-          {hasError && (
-            <div
-              className="my-3 flex items-center justify-between gap-3 text-[12px] text-rh-warning"
-              role="alert"
-            >
-              <span>{message || t('page.analysisIncomplete')}</span>
-              <button
-                className={`${buttonStyle} shrink-0 text-[12px]`}
-                disabled={busy || !canAnalyze}
-                title={t('page.retryUsage')}
-                onClick={(event) => analyze(event, !!job?.jev)}
-              >
-                {t('page.retry')}
-              </button>
-            </div>
-          )}
-          {preferences && !preferences.ready && (
-            <div className="my-3 flex items-center justify-between gap-3 rounded-[8px] bg-rh-surface p-3 text-[12px] max-[480px]:flex-wrap">
-              <span>{t('page.connectPrompt')}</span>
-            </div>
-          )}
-          {preferences?.ready && !preferences.autoAnalyze && (
-            <div className="my-3 flex items-center justify-between gap-3 rounded-[8px] bg-rh-surface p-3 text-[12px] max-[480px]:flex-wrap">
-              <div>
-                <b>{t('page.automaticAnalysis')}</b>
-                <p className="mt-1 text-rh-muted">{t('page.automaticConsent')}</p>
-              </div>
-              <button
-                className={`${buttonStyle} shrink-0 text-[12px]`}
-                disabled={savingAuto}
-                onClick={(event) => void toggleAuto(event)}
-              >
-                {t('page.agreeEnable')}
-              </button>
-            </div>
-          )}
-          {preferences?.ready && !preferences.autoAnalyze && (
-            <label className="my-3 flex items-start gap-2 text-[12px] text-rh-muted">
-              <input
-                type="checkbox"
-                className={`mt-[3px] h-[15px] w-[15px] shrink-0 accent-rh-accent ${focusRing}`}
-                checked={allowCloud}
-                disabled={busy}
-                onChange={(event) => {
-                  if (isUserAction(event.nativeEvent)) setAllowCloud(event.target.checked);
-                }}
-              />
-              {t('page.analysisConsent')}
-            </label>
-          )}
-          <details className="panel-details mt-4 border-t border-rh-border pt-2 text-[12px]">
-            <summary className={`cursor-pointer py-2 text-[12px] text-rh-muted ${focusRing}`}>
-              {t('page.listDetails')}
-            </summary>
-            <div className="pt-1 [overflow-wrap:anywhere]">
-              <EmployerDetails check={employerCheck} />
-            </div>
-          </details>
-        </div>
+      {settingsError && (
+        <p className="m-0 px-5 pt-2 text-[12px] text-rh-warning" role="alert">
+          {settingsError}
+        </p>
       )}
+      <div id={bodyId} hidden={!expanded}>
+        {expanded && (
+          <div className="panel-body grid gap-5 px-5 pt-4 pb-4 max-[480px]:px-[14px]">
+            <dl className="facts m-0 grid grid-cols-3 gap-2 max-[640px]:grid-cols-2">
+              <Fact label={t('page.occupationReference')}>
+                {reading
+                  ? (reading.occupationTitle ?? (
+                      <span className="font-normal text-rh-muted">{t('page.undetermined')}</span>
+                    ))
+                  : missing}
+              </Fact>
+              <Fact label={t('page.experience')}>
+                {experience ? (
+                  <span className="inline-flex flex-wrap items-baseline gap-x-2">
+                    {experience.label}
+                    {experience.estimated && (
+                      <span className="experience-estimate-tag rounded-[5px] bg-rh-info-bg px-[6px] py-[1px] text-[11px] font-medium text-rh-link">
+                        {t('page.localEstimate')}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  missing
+                )}
+              </Fact>
+              <Fact label={t('page.accreditedList')}>
+                <EmployerTag employer={draft.employer} check={employerCheck} />
+              </Fact>
+              <VisaFact
+                label={t('page.visaSupport')}
+                decision={reading?.visa.sponsorship}
+                names={{
+                  supported: t('page.visaSupported'),
+                  not_supported: t('page.visaUnsupported'),
+                  not_mentioned: t('page.notMentioned'),
+                  conflict: t('page.conflicting'),
+                }}
+                tones={{ supported: 'positive' }}
+                missing={missing}
+              />
+              <VisaFact
+                label={t('page.workRights')}
+                decision={reading?.visa.workRights}
+                names={{
+                  required: t('page.required'),
+                  not_required: t('page.notRequired'),
+                  not_mentioned: t('page.notMentioned'),
+                  conflict: t('page.conflicting'),
+                }}
+                tones={{ not_required: 'positive' }}
+                missing={missing}
+              />
+              <VisaFact
+                label={t('page.residency')}
+                decision={reading?.visa.residency}
+                names={{
+                  citizen_or_resident_only: t('page.residencyRestricted'),
+                  not_mentioned: t('page.notMentioned'),
+                  conflict: t('page.conflicting'),
+                }}
+                tones={{}}
+                missing={missing}
+              />
+            </dl>
+            {readError && (
+              <p
+                className="m-0 flex flex-wrap items-center gap-x-3 text-[12px] text-rh-warning"
+                role="alert"
+              >
+                {readError}
+                <button
+                  type="button"
+                  className={`${quietButtonStyle} px-2 text-rh-link`}
+                  onClick={() => setAttempt((value) => value + 1)}
+                >
+                  {t('page.retry')}
+                </button>
+              </p>
+            )}
+            {!reading && !readError && (
+              <p className="m-0 text-[12px] text-rh-muted" role="status">
+                {t('page.prepLoading')}
+              </p>
+            )}
+            {reading && <PrepChecklist prep={reading.prep} />}
+            {reading?.prep.truncated && (
+              <p className="m-0 text-[12px] text-rh-muted">{t('page.prepTruncated')}</p>
+            )}
+            <div className="grid gap-1 border-t border-rh-border pt-2 text-[12px]">
+              <details className="list-details">
+                <summary className={`cursor-pointer py-1 text-rh-muted ${focusRing}`}>
+                  {t('page.listDetails')}
+                </summary>
+                <div className="pt-1 [overflow-wrap:anywhere]">
+                  <EmployerDetails check={employerCheck} />
+                </div>
+              </details>
+              <p className="m-0 pt-1 text-[11px] text-rh-muted">{t('page.localNote')}</p>
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

@@ -11,6 +11,7 @@ import {
   SNAPSHOT_CATALOG_URL,
   SNAPSHOT_ORIGIN,
   EMPLOYER_REFRESH_INTERVAL_MS,
+  EMPLOYER_RETRY_INTERVAL_MS,
 } from '../src/employers';
 
 const now = Date.parse('2026-09-19T10:00:00Z');
@@ -27,7 +28,6 @@ const source = {
   snapshotSourceUrl: `${SNAPSHOT_ORIGIN}/snapshots/2026-09-19/employers.csv`,
   generatedAt: now - 60_000,
 };
-const local = { refresh: false };
 // Public identity from the alias registry; verification/expiry values are test data.
 const bnz = {
   ...row,
@@ -144,12 +144,15 @@ describe('local employer matching', () => {
     },
   );
 
-  it('keeps stale alias records stale', async () => {
+  it('keeps the old verification date of an alias record', async () => {
     await importEmployerData(
       JSON.stringify([{ ...bnz, last_verified_at: '2026-07-27T00:00:00Z' }]),
       source,
     );
-    expect((await checkEmployers(['BNZ']))[0]).toMatchObject({ status: 'matched', stale: true });
+    expect((await checkEmployers(['BNZ']))[0]).toMatchObject({
+      status: 'matched',
+      checkedAt: Date.parse('2026-07-27T00:00:00Z'),
+    });
   });
 
   it('does not fetch or invent a status on default queries before a snapshot is present', async () => {
@@ -164,25 +167,6 @@ describe('local employer matching', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it('keeps force-only page lookups local without an explicit refresh flag', async () => {
-    const fetcher = vi.fn();
-    vi.stubGlobal('fetch', fetcher);
-    expect((await checkEmployers(['Acme Limited'], { force: true }))[0]?.status).toBe(
-      'unavailable',
-    );
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-
-  it('keeps a recent snapshot and record fresh for seven days', async () => {
-    await importEmployerData(JSON.stringify([row]), source);
-    vi.mocked(Date.now).mockReturnValue(now + 2 * 24 * 60 * 60 * 1000);
-    expect((await checkEmployers(['Acme Ltd']))[0]?.stale).toBe(false);
-    vi.mocked(Date.now).mockReturnValue(
-      Date.parse(row.last_verified_at) + EMPLOYER_REFRESH_INTERVAL_MS,
-    );
-    expect((await checkEmployers(['Acme Ltd']))[0]?.stale).toBe(true);
-  });
-
   it('confirms whole normalized names and marks shortened names for review without networking', async () => {
     const fetcher = vi.fn();
     vi.stubGlobal('fetch', fetcher);
@@ -190,12 +174,28 @@ describe('local employer matching', () => {
     const result = await checkEmployers(['ＡＣＭＥ LTD.', 'Acme Cloud', 'Acme', 'acme ltd']);
     expect(result.map((r) => r.status)).toEqual(['matched', 'matched', 'ambiguous', 'matched']);
     expect(result[0]?.checkedAt).toBe(Date.parse(row.last_verified_at));
-    expect(result[0]?.stale).toBe(false);
     expect(result[2]?.note).toContain('不代表雇主未认证');
     expect(fetcher).not.toHaveBeenCalled();
     expect(normalizeEmployerName('Acme NZ Limited')).not.toBe(
       normalizeEmployerName('Acme Limited'),
     );
+  });
+
+  it('reuses the review-candidate index for one snapshot and rebuilds it after a replacement', async () => {
+    await importEmployerData(JSON.stringify([row]), source);
+    const getAll = vi.spyOn(IDBObjectStore.prototype, 'getAll');
+    const first = await checkEmployers(['Acme']);
+    const second = await checkEmployers(['Acme']);
+    expect(first[0]?.matches.map((m) => m.nzbn)).toEqual([row.nzbn]);
+    expect(second[0]?.matches).toEqual(first[0]?.matches);
+    const fullReads = () => getAll.mock.calls.filter((args) => args.length === 0).length;
+    expect(fullReads()).toBe(1);
+
+    const replacement = { ...row, employer_name: 'Acme Freight Limited', nzbn: '9429000000002' };
+    await importEmployerData(JSON.stringify([replacement]), source);
+    const after = await checkEmployers(['Acme']);
+    expect(after[0]?.matches.map((m) => m.nzbn)).toEqual([replacement.nzbn]);
+    expect(fullReads()).toBe(2);
   });
 
   it('uses an old local snapshot without a network check after more than a week by default', async () => {
@@ -206,7 +206,6 @@ describe('local employer matching', () => {
 
     expect((await checkEmployers(['Acme Ltd']))[0]).toMatchObject({
       status: 'matched',
-      stale: true,
       checkedAt: Date.parse(row.last_verified_at),
     });
     expect((await getEmployerCacheStatus()).lastAttemptAt).toBeNull();
@@ -226,17 +225,16 @@ describe('local employer matching', () => {
       ]),
       source,
     );
-    expect((await checkEmployers(['Acme Limited'], local))[0]?.status).toBe('ambiguous');
+    expect((await checkEmployers(['Acme Limited']))[0]?.status).toBe('ambiguous');
   });
 
-  it('keeps per-record verification stale even when a new snapshot was downloaded', async () => {
+  it('reports the per-record verification date rather than the snapshot date', async () => {
     await importEmployerData(
       JSON.stringify([{ ...row, last_verified_at: '2026-07-27T00:00:00Z' }]),
       source,
     );
-    const match = (await checkEmployers(['Acme Ltd'], local))[0]!;
+    const match = (await checkEmployers(['Acme Ltd']))[0]!;
     expect(match.status).toBe('matched');
-    expect(match.stale).toBe(true);
     expect(match.checkedAt).toBe(Date.parse('2026-07-27T00:00:00Z'));
   });
 
@@ -247,7 +245,7 @@ describe('local employer matching', () => {
         JSON.stringify([{ ...row, expiry_date_of_accreditation: expiry }]),
         source,
       );
-      expect((await checkEmployers(['Acme Ltd'], local))[0]?.status).toBe('unavailable');
+      expect((await checkEmployers(['Acme Ltd']))[0]?.status).toBe('unavailable');
     },
   );
 
@@ -255,7 +253,7 @@ describe('local employer matching', () => {
     await importEmployerData(JSON.stringify([row]), source);
     await expect(importEmployerData(JSON.stringify([row, row]), source)).rejects.toThrow('重复');
     expect((await getEmployerCacheStatus()).recordCount).toBe(1);
-    expect((await checkEmployers(['Acme Ltd'], local))[0]?.status).toBe('matched');
+    expect((await checkEmployers(['Acme Ltd']))[0]?.status).toBe('matched');
   });
 
   it('parses escaped CSV fields and rejects malformed row boundaries', () => {
@@ -296,15 +294,13 @@ describe('public snapshot synchronization', () => {
     expect(fetcher).toHaveBeenCalledOnce();
   });
 
-  it('deduplicates explicit refresh batches, checks files, and limits non-forced checks to once per elapsed week', async () => {
+  it('deduplicates concurrent refreshes, checks files, and limits non-forced checks to once per elapsed week', async () => {
     const { fetcher } = await payload();
-    const results = await Promise.all([
-      checkEmployers(['Acme Ltd'], { refresh: true }),
-      checkEmployers(['Acme Cloud'], { refresh: true }),
-    ]);
-    expect(results.flat().every((r) => r.status === 'matched')).toBe(true);
+    await Promise.all([refreshEmployerSnapshot(), refreshEmployerSnapshot()]);
+    const results = await checkEmployers(['Acme Ltd', 'Acme Cloud']);
+    expect(results.every((r) => r.status === 'matched')).toBe(true);
     expect(fetcher).toHaveBeenCalledTimes(2);
-    await checkEmployers(['Acme Ltd'], { refresh: true });
+    await refreshEmployerSnapshot();
     expect(fetcher).toHaveBeenCalledTimes(2);
     const status = await getEmployerCacheStatus();
     expect(status).toMatchObject({
@@ -320,13 +316,12 @@ describe('public snapshot synchronization', () => {
 
   it('explicit force downloads a changed snapshot even before the automatic weekly check is due', async () => {
     const initial = await payload();
-    await checkEmployers(['Acme Cloud'], { refresh: true });
+    await refreshEmployerSnapshot();
     expect(initial.fetcher).toHaveBeenCalledTimes(2);
 
     const updated = await payload({}, { ...row, trading_name: 'Acme Digital' });
-    expect(
-      (await checkEmployers(['Acme Digital'], { refresh: true, force: true }))[0]?.status,
-    ).toBe('matched');
+    await refreshEmployerSnapshot({ force: true });
+    expect((await checkEmployers(['Acme Digital']))[0]?.status).toBe('matched');
     expect(updated.fetcher.mock.calls.map(([url]) => url)).toEqual([
       SNAPSHOT_CATALOG_URL,
       source.snapshotSourceUrl,
@@ -339,13 +334,10 @@ describe('public snapshot synchronization', () => {
     await importEmployerData(JSON.stringify([row]), source);
     const fetcher = vi.fn().mockRejectedValue(new Error('offline'));
     vi.stubGlobal('fetch', fetcher);
-    await checkEmployers(['Acme Ltd'], { refresh: true });
-    await checkEmployers(['Acme Ltd'], { refresh: true });
+    await refreshEmployerSnapshot();
+    await refreshEmployerSnapshot();
     expect(fetcher).toHaveBeenCalledTimes(1);
-    expect((await checkEmployers(['Acme Ltd'], local))[0]).toMatchObject({
-      status: 'matched',
-      stale: true,
-    });
+    expect((await checkEmployers(['Acme Ltd']))[0]?.status).toBe('matched');
     expect((await getEmployerCacheStatus()).error).toBe('offline');
     await refreshEmployerSnapshot({ force: true });
     expect(fetcher).toHaveBeenCalledTimes(2);
@@ -363,7 +355,7 @@ describe('public snapshot synchronization', () => {
     const result = await refreshEmployerSnapshot();
     expect(result.error).toBeTruthy();
     expect(result.recordCount).toBe(1);
-    expect((await checkEmployers(['Acme Ltd'], local))[0]?.matches[0]?.nzbn).toBe(row.nzbn);
+    expect((await checkEmployers(['Acme Ltd']))[0]?.matches[0]?.nzbn).toBe(row.nzbn);
   });
 
   it('only checks the catalog when its checksum is unchanged', async () => {
@@ -373,7 +365,7 @@ describe('public snapshot synchronization', () => {
     expect(fetcher).toHaveBeenCalledTimes(3);
   });
 
-  it('persists the attempt before fetching and suppresses retries after a module restart', async () => {
+  it('persists the attempt before fetching and retries a failure after the retry interval, even across a module restart', async () => {
     const fetcher = vi.fn(async () => {
       expect((await getEmployerCacheStatus()).lastAttemptAt).toBe(now);
       throw new Error('offline');
@@ -382,10 +374,13 @@ describe('public snapshot synchronization', () => {
     await refreshEmployerSnapshot();
     vi.resetModules();
     const restarted = await import('../src/employers');
-    vi.mocked(Date.now).mockReturnValue(now + EMPLOYER_REFRESH_INTERVAL_MS - 1);
+    vi.mocked(Date.now).mockReturnValue(now + EMPLOYER_RETRY_INTERVAL_MS - 1);
     await restarted.refreshEmployerSnapshot();
     expect(fetcher).toHaveBeenCalledOnce();
     expect((await restarted.getEmployerCacheStatus()).error).toBe('offline');
+    vi.mocked(Date.now).mockReturnValue(now + EMPLOYER_RETRY_INTERVAL_MS);
+    await restarted.refreshEmployerSnapshot();
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
   it('waits seven elapsed days, regardless of Auckland midnight, and checks at the boundary', async () => {

@@ -1,8 +1,8 @@
-import { INZ_EMPLOYER_SOURCE, type EmployerCheck } from '../employers/types';
+import { EMPLOYER_OPEN_DATA, INZ_EMPLOYER_SOURCE, type EmployerCheck } from '../employers/types';
 import { formatDate, t } from '../i18n';
-import { linkStyle } from './styles';
+import { linkStyle, pillStyle } from './styles';
 
-export function employerLabel(check?: EmployerCheck) {
+function employerLabel(check?: EmployerCheck) {
   if (!check) return t('page.checking');
   if (check.status === 'matched') return t('page.matched');
   if (check.status === 'ambiguous' || check.matches.length) return t('page.employerReview');
@@ -52,7 +52,7 @@ export function EmployerDetails({ check }: { check?: EmployerCheck }) {
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
         <a
           className={linkStyle}
-          href={check?.snapshotSourceUrl ?? 'https://nzaei.zemo.bio/open-data/'}
+          href={check?.snapshotSourceUrl ?? EMPLOYER_OPEN_DATA}
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -70,33 +70,27 @@ export function EmployerDetails({ check }: { check?: EmployerCheck }) {
     </section>
   );
 }
-export function EmployerBadge({
-  check,
-  employer,
-  compact = false,
-}: {
-  check?: EmployerCheck;
-  employer: string;
-  compact?: boolean;
-}) {
+/** The list status alone, for the panel's facts grid. */
+export function EmployerTag({ check, employer }: { check?: EmployerCheck; employer: string }) {
   const label = employer ? employerLabel(check) : t('page.companyMissing');
   const matched = !!employer && check?.status === 'matched';
   const needsReview =
     !!employer && !!check && !matched && (check.status === 'ambiguous' || check.matches.length > 0);
   return (
-    <div
-      className={`employer ${compact ? 'm-0 flex items-center gap-[7px]' : 'grid grid-cols-[minmax(100px,0.34fr)_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2'}`}
+    <span
+      className={`tag max-w-full items-center gap-[5px] ${matched ? pillStyle.positive : needsReview ? pillStyle.warning : pillStyle.neutral}`}
     >
-      <span
-        className={`text-rh-muted ${compact ? 'text-[11px]' : 'text-[14px] leading-[1.5] font-semibold'}`}
-      >
-        {t('page.accreditedList')}
-      </span>
-      <span
-        className={`tag inline-flex w-fit max-w-full items-center gap-[5px] rounded-[6px] border px-[10px] py-[3px] text-[12px] font-[650] ${matched ? 'border-rh-positive-border bg-rh-positive-bg text-rh-positive' : needsReview ? 'border-rh-warning-border bg-rh-warning-bg text-rh-warning' : 'border-transparent bg-rh-surface text-rh-muted'}`}
-      >
-        {label}
-      </span>
+      {label}
+    </span>
+  );
+}
+
+/** Compact list-card label: "Accredited employer list  [Matched]". */
+export function EmployerBadge({ check, employer }: { check?: EmployerCheck; employer: string }) {
+  return (
+    <div className="employer m-0 flex items-center gap-[7px]">
+      <span className="text-[11px] text-rh-muted">{t('page.accreditedList')}</span>
+      <EmployerTag employer={employer} check={check} />
     </div>
   );
 }

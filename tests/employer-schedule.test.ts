@@ -3,6 +3,7 @@ import { deleteDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   EMPLOYER_REFRESH_INTERVAL_MS,
+  EMPLOYER_RETRY_INTERVAL_MS,
   SNAPSHOT_CATALOG_URL,
   SNAPSHOT_ORIGIN,
   getEmployerCacheStatus,
@@ -141,18 +142,20 @@ describe('weekly employer snapshot schedule', () => {
     expect(chrome.alarm()?.scheduledTime).toBe(now + 2 * EMPLOYER_REFRESH_INTERVAL_MS);
   });
 
-  it('uses only its named alarm and persists failed attempts for a full week', async () => {
+  it('uses only its named alarm and retries a failed attempt after the retry interval', async () => {
     const chrome = browser();
     const fetcher = vi.fn().mockRejectedValue(new Error('offline'));
     vi.stubGlobal('fetch', fetcher);
     start();
     await vi.waitFor(() => expect(chrome.create).toHaveBeenCalledOnce());
     expect((await getEmployerCacheStatus()).lastAttemptAt).toBe(now);
+    // A failure rearms soon, not a week later.
+    expect(chrome.alarm()?.scheduledTime).toBe(now + EMPLOYER_RETRY_INTERVAL_MS);
     chrome.onAlarm.fire({ name: 'unrelated', scheduledTime: now, persistAcrossSessions: true });
     chrome.onStartup.fire();
     await vi.waitFor(() => expect(chrome.get).toHaveBeenCalledTimes(2));
     expect(fetcher).toHaveBeenCalledOnce();
-    vi.mocked(Date.now).mockReturnValue(now + EMPLOYER_REFRESH_INTERVAL_MS);
+    vi.mocked(Date.now).mockReturnValue(now + EMPLOYER_RETRY_INTERVAL_MS);
     chrome.onAlarm.fire({
       name: EMPLOYER_SNAPSHOT_ALARM,
       scheduledTime: Date.now(),
@@ -160,7 +163,7 @@ describe('weekly employer snapshot schedule', () => {
     });
     await vi.waitFor(() => expect(chrome.create).toHaveBeenCalledTimes(2));
     expect(fetcher).toHaveBeenCalledTimes(2);
-    expect(chrome.alarm()?.scheduledTime).toBe(now + 2 * EMPLOYER_REFRESH_INTERVAL_MS);
+    expect(chrome.alarm()?.scheduledTime).toBe(now + 2 * EMPLOYER_RETRY_INTERVAL_MS);
   });
 
   it('manual refresh bypasses the weekly gate and moves the next automatic check', async () => {
@@ -195,7 +198,7 @@ describe('weekly employer snapshot schedule', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
     expect(await schedule.refresh()).toMatchObject({ recordCount: 1, error: 'offline' });
     expect(onUpdated).toHaveBeenCalledOnce();
-    expect(chrome.alarm()?.scheduledTime).toBe(now + 86_400_000 + EMPLOYER_REFRESH_INTERVAL_MS);
+    expect(chrome.alarm()?.scheduledTime).toBe(now + 86_400_000 + EMPLOYER_RETRY_INTERVAL_MS);
   });
 
   it('disposes listeners without deleting the alarm needed by the next worker', async () => {

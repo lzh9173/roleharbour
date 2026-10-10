@@ -74,7 +74,7 @@ describe('local employer backups', () => {
     await importEmployerBackup(backup([legacy]));
     expect((await checkEmployers(['Acme Ltd']))[0]).toMatchObject({
       status: 'unavailable',
-      stale: true,
+      checkedAt: null,
     });
     expect(JSON.parse(await exportEmployerBackup()).records).toEqual([legacy]);
   });
@@ -87,7 +87,7 @@ describe('local employer backups', () => {
     const status = await getEmployerCacheStatus();
     expect(status.error).toBeUndefined();
     expect(status.lastAttemptAt).toBeNull();
-    expect((await checkEmployers(['Acme Ltd']))[0]?.stale).toBe(false);
+    expect((await checkEmployers(['Acme Ltd']))[0]?.status).toBe('matched');
   });
 
   it.each([

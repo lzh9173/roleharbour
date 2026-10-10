@@ -4,7 +4,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EmployerCacheStatus } from '../src/employers';
 import { EmployerSettings } from '../src/ui/EmployerSettings';
+import { formatDate } from '../src/i18n';
 import { applyLanguagePreference } from '../src/i18n/preference';
+import { settingsStyles as styles } from '../src/ui/styles';
 
 const api = vi.hoisted(() => ({
   getEmployerCacheStatus: vi.fn(),
@@ -25,7 +27,12 @@ let container: HTMLDivElement;
 let root: Root;
 let requestPermission: ReturnType<typeof vi.fn>;
 let sendMessage: ReturnType<typeof vi.fn>;
-const messageListeners = new Set<(message: unknown) => void>();
+type MessageListener = (message: unknown, sender: chrome.runtime.MessageSender) => void;
+const messageListeners = new Set<MessageListener>();
+const extensionId = 'test-extension-id';
+function broadcast(message: unknown, sender: chrome.runtime.MessageSender = { id: extensionId }) {
+  for (const listener of messageListeners) listener(message, sender);
+}
 let fetchOnline: ReturnType<typeof vi.fn>;
 let createUrl: ReturnType<typeof vi.fn>;
 let revokeUrl: ReturnType<typeof vi.fn>;
@@ -36,6 +43,12 @@ function button(label: string): HTMLButtonElement {
   );
   if (!result) throw new Error(`Missing button: ${label}`);
   return result;
+}
+function stats(): string[] {
+  return [...container.querySelectorAll('dl dd')].map((node) => node.textContent ?? '');
+}
+function status(): HTMLParagraphElement {
+  return container.querySelector<HTMLParagraphElement>('[role="status"]')!;
 }
 async function mount() {
   await act(async () => {
@@ -76,10 +89,11 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchOnline);
   vi.stubGlobal('chrome', {
     runtime: {
+      id: extensionId,
       sendMessage,
       onMessage: {
-        addListener: (listener: (message: unknown) => void) => messageListeners.add(listener),
-        removeListener: (listener: (message: unknown) => void) => messageListeners.delete(listener),
+        addListener: (listener: MessageListener) => messageListeners.add(listener),
+        removeListener: (listener: MessageListener) => messageListeners.delete(listener),
       },
     },
     permissions: { request: requestPermission },
@@ -109,12 +123,31 @@ afterEach(async () => {
 describe('local employer list settings', () => {
   it('reads only local status on mount and shows the weekly list date and count', async () => {
     await mount();
-    expect(container.textContent).toContain('本地雇主名单');
-    expect(container.textContent).toContain('名单日期：2026-09-18 · 3 条');
+    expect(container.querySelector('h2')?.textContent).toBe('认证雇主名单');
+    expect([...container.querySelectorAll('dl dt')].map((node) => node.textContent)).toEqual([
+      '名单日期',
+      '雇主记录',
+    ]);
+    expect(stats()).toEqual(['2026/9/18', '3']);
     expect(container.textContent).toContain('每周自动更新');
     expect(container.querySelector('input[type="checkbox"]')).toBeNull();
     expect(container.textContent).not.toContain('查询记录');
-    expect(container.textContent).toContain('JSON 名单备份');
+    const details = container.querySelector('details')!;
+    expect(details.open).toBe(false);
+    expect(details.querySelector('summary')?.textContent).toBe('关于名单与备份');
+    expect(details.textContent).toContain('JSON 名单备份');
+    expect(details.textContent).toContain('名单有时间差');
+    expect(container.textContent).not.toContain('上次检查');
+    expect(container.textContent).not.toContain('自动更新失败');
+    expect([...container.querySelectorAll('button')].map((node) => node.textContent)).toEqual([
+      '立即更新',
+      '导出名单',
+      '导入名单',
+    ]);
+    expect(button('立即更新').className).toBe(styles.primary);
+    expect(button('立即更新').querySelector('svg')).not.toBeNull();
+    expect(status().textContent).toBe('');
+    expect(status().getAttribute('aria-live')).toBe('polite');
     expect(requestPermission).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
   });
@@ -142,7 +175,7 @@ describe('local employer list settings', () => {
     await act(async () => {
       finish({ ok: true, cache: updated });
     });
-    expect(container.textContent).toContain('名单日期：2026-09-21 · 9 条');
+    expect(stats()).toEqual(['2026/9/21', '9']);
     expect(container.textContent).toContain('返回 SEEK 即可查看');
     expect(button('立即更新').disabled).toBe(false);
   });
@@ -166,9 +199,11 @@ describe('local employer list settings', () => {
       else sendMessage.mockResolvedValue(undefined);
       await mount();
       await click('立即更新');
-      expect(container.textContent).toContain('更新失败');
-      expect(container.textContent).toContain('本地名单未更改');
-      expect(container.textContent).toContain('名单日期：2026-09-18 · 3 条');
+      expect(status().textContent).toContain('更新失败');
+      expect(status().textContent).toContain('本地名单未更改');
+      expect(status().className).toBe(styles.error);
+      expect(container.textContent).not.toContain('自动更新失败');
+      expect(stats()).toEqual(['2026/9/18', '3']);
       expect(button('立即更新').disabled).toBe(false);
     },
   );
@@ -178,7 +213,7 @@ describe('local employer list settings', () => {
     await select();
     expect(api.importEmployerBackup).not.toHaveBeenCalled();
     expect(requestPermission).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('名单日期：2026-09-18 · 3 条');
+    expect(stats()).toEqual(['2026/9/18', '3']);
   });
 
   it('rejects an oversized backup before reading it', async () => {
@@ -188,7 +223,7 @@ describe('local employer list settings', () => {
     expect(read).not.toHaveBeenCalled();
     expect(api.importEmployerBackup).not.toHaveBeenCalled();
     expect(container.textContent).toContain('文件不能超过 12 MiB');
-    expect(container.textContent).toContain('名单日期：2026-09-18 · 3 条');
+    expect(stats()).toEqual(['2026/9/18', '3']);
   });
 
   it('keeps the original list and reports an invalid backup', async () => {
@@ -197,7 +232,7 @@ describe('local employer list settings', () => {
     await select(backupFile('not json').file);
     expect(container.textContent).toContain('备份格式无效');
     expect(container.textContent).toContain('本地名单未更改');
-    expect(container.textContent).toContain('名单日期：2026-09-18 · 3 条');
+    expect(stats()).toEqual(['2026/9/18', '3']);
     expect(requestPermission).not.toHaveBeenCalled();
   });
 
@@ -210,7 +245,7 @@ describe('local employer list settings', () => {
     await mount();
     await select(backupFile(content).file);
     expect(api.importEmployerBackup).toHaveBeenCalledExactlyOnceWith(content);
-    expect(container.textContent).toContain('名单日期：2026-09-21 · 9 条');
+    expect(stats()).toEqual(['2026/9/21', '9']);
     expect(container.textContent).toContain('返回 SEEK 即可查看');
     expect(requestPermission).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
@@ -246,7 +281,8 @@ describe('local employer list settings', () => {
     expect(api.exportEmployerBackup).toHaveBeenCalledExactlyOnceWith();
     expect(createUrl).toHaveBeenCalledWith(expect.any(Blob));
     expect(download).toMatch(/^roleharbour-employers-\d{4}-\d{2}-\d{2}\.json$/);
-    expect(container.textContent).toContain('不含岗位记录或 API Key');
+    expect(status().textContent).toBe('已导出雇主名单。');
+    expect(status().className).toBe(styles.success);
     expect(requestPermission).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1000);
@@ -258,7 +294,99 @@ describe('local employer list settings', () => {
     await mount();
     await click('导出名单');
     expect(createUrl).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('名单备份超过 12 MiB');
+    expect(status().textContent).toBe('导出失败：名单备份超过 12 MiB');
+    expect(status().className).toBe(styles.error);
+  });
+});
+
+describe('employer list status card', () => {
+  it('shows an ellipsis instead of an empty list while the first read is pending', async () => {
+    let finishRead!: (value: EmployerCacheStatus) => void;
+    api.getEmployerCacheStatus.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishRead = resolve;
+      }),
+    );
+    await mount();
+    expect(stats()).toEqual(['…', '…']);
+    expect(container.textContent).not.toContain('尚无名单');
+    expect(button('导出名单').disabled).toBe(true);
+    expect(button('立即更新').disabled).toBe(false);
+    await act(async () => {
+      finishRead(original);
+    });
+    expect(stats()).toEqual(['2026/9/18', '3']);
+    expect(button('导出名单').disabled).toBe(false);
+  });
+
+  it('shows an explicit empty state once an empty cache has been read', async () => {
+    api.getEmployerCacheStatus.mockResolvedValue({
+      ...original,
+      snapshotDate: null,
+      downloadedAt: null,
+      recordCount: 0,
+      snapshotSourceUrl: null,
+    });
+    await mount();
+    expect(stats()).toEqual(['尚无名单', '0']);
+    expect(button('导出名单').disabled).toBe(true);
+  });
+
+  it.each([
+    ['en', 'List date', '9/18/2026', '30,261'],
+    ['ja', 'リストの日付', '2026/9/18', '30,261'],
+  ] as const)(
+    'localises the list date and record count in %s',
+    async (locale, label, date, count) => {
+      applyLanguagePreference(locale);
+      api.getEmployerCacheStatus.mockResolvedValue({ ...original, recordCount: 30261 });
+      await mount();
+      expect(container.querySelector('dl dt')?.textContent).toBe(label);
+      expect(stats()).toEqual([date, count]);
+    },
+  );
+
+  it('shows when the list was last checked', async () => {
+    const lastAttemptAt = Date.parse('2026-09-20T12:00:00Z');
+    api.getEmployerCacheStatus.mockResolvedValue({ ...original, lastAttemptAt });
+    await mount();
+    expect(container.textContent).toContain(`上次检查：${formatDate(lastAttemptAt)}`);
+  });
+
+  it('shows an automatic-sync failure from the cached status until a newer action message', async () => {
+    api.getEmployerCacheStatus.mockResolvedValue({
+      ...original,
+      error: 'Synthetic network failure',
+      lastAttemptAt: Date.parse('2026-09-20T12:00:00Z'),
+    });
+    await mount();
+    expect(container.textContent).toContain('自动更新失败：Synthetic network failure');
+    expect(status().textContent).toBe('');
+    expect(stats()).toEqual(['2026/9/18', '3']);
+    await click('立即更新');
+    expect(container.textContent).not.toContain('自动更新失败');
+    expect(status().textContent).toBe('已更新本地名单，返回 SEEK 即可查看。');
+    expect(status().className).toBe(styles.success);
+  });
+
+  it('distinguishes success and error notices in the same live status region', async () => {
+    await mount();
+    const region = status();
+    await click('立即更新');
+    expect(region.className).toBe(styles.success);
+    expect(region.className).not.toBe(styles.error);
+    sendMessage.mockResolvedValueOnce({ ok: false, error: 'Synthetic worker failure' });
+    await click('立即更新');
+    expect(status()).toBe(region);
+    expect(region.textContent).toBe('更新失败：Synthetic worker failure。本地名单未更改。');
+    expect(region.className).toBe(styles.error);
+  });
+
+  it('reports a local status read failure as an error notice', async () => {
+    api.getEmployerCacheStatus.mockRejectedValueOnce(new Error('Synthetic local read failure'));
+    await mount();
+    expect(status().textContent).toBe('无法读取本地名单状态。');
+    expect(status().className).toBe(styles.error);
   });
 });
 
@@ -285,15 +413,21 @@ describe('employer list status updates', () => {
     await act(async () => {
       window.dispatchEvent(new Event('focus'));
     });
-    expect(container.textContent).toContain('名单日期：2026-09-21 · 9 条');
+    expect(stats()).toEqual(['2026/9/21', '9']);
     api.getEmployerCacheStatus.mockResolvedValue({ ...updated, recordCount: 10 });
     await act(async () => {
-      for (const listener of messageListeners) listener({ type: 'employers:updated' });
+      broadcast({ type: 'employers:updated' });
     });
-    expect(container.textContent).toContain('名单日期：2026-09-21 · 10 条');
+    expect(stats()).toEqual(['2026/9/21', '10']);
     expect(api.getEmployerCacheStatus).toHaveBeenCalledTimes(3);
     await act(async () => {
-      for (const listener of messageListeners) listener({ type: 'unrelated' });
+      broadcast({ type: 'unrelated' });
+      // A SEEK tab (or another extension) cannot make this page reread its status.
+      broadcast(
+        { type: 'employers:updated' },
+        { id: extensionId, tab: { id: 1 } as chrome.tabs.Tab },
+      );
+      broadcast({ type: 'employers:updated' }, { id: 'another-extension' });
     });
     expect(api.getEmployerCacheStatus).toHaveBeenCalledTimes(3);
     expect(sendMessage).not.toHaveBeenCalled();
@@ -316,8 +450,8 @@ describe('employer list status updates', () => {
       await act(async () => {
         finishRead(original);
       });
-      expect(container.textContent).toContain('名单日期：2026-09-21 · 9 条');
-      expect(container.textContent).not.toContain('名单日期：2026-09-18');
+      expect(stats()).toEqual(['2026/9/21', '9']);
+      expect(stats()).not.toContain('2026/9/18');
     },
   );
 
@@ -339,7 +473,7 @@ describe('employer list status updates', () => {
     await act(async () => {
       finishRead(original);
     });
-    expect(container.textContent).toContain('名单日期：2026-09-21 · 9 条');
+    expect(stats()).toEqual(['2026/9/21', '9']);
   });
 
   it('recovers from a local status read failure on focus', async () => {
@@ -349,7 +483,7 @@ describe('employer list status updates', () => {
     await act(async () => {
       window.dispatchEvent(new Event('focus'));
     });
-    expect(container.textContent).toContain('名单日期：2026-09-18 · 3 条');
+    expect(stats()).toEqual(['2026/9/18', '3']);
     expect(container.textContent).not.toContain('无法读取本地名单状态');
     expect(sendMessage).not.toHaveBeenCalled();
   });

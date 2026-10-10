@@ -1,9 +1,20 @@
 export const settingsMessages = {
-  'settings.optionalKey': ['TypeSafe API Key（可选）', 'TypeSafe API Key (optional)'],
-  'settings.basicAvailable': [
-    '安装后就能查看招聘要求、经验要求和雇主名单，无需额外设置。想让 AI 进一步解读职位和签证说明，再填写下方的 TypeSafe Key 即可。',
-    'See job requirements, experience requirements and employer-list information without any setup. To get AI help understanding the job and its visa wording, add your TypeSafe Key below.',
+  'settings.version': ['版本 {version}', 'Version {version}'],
+  'settings.tagline': [
+    '在 SEEK 职位页面直接查看应聘准备清单、签证说明和认证雇主信息。所有分析都在本机完成，不上传职位内容。',
+    'See a preparation checklist, visa wording and accredited-employer checks right on SEEK job pages. Everything runs on this device; job content is never uploaded.',
   ],
+  'settings.privacy': ['隐私与数据来源', 'Privacy and data sources'],
+  'settings.privacyBody': [
+    '职位分析、雇主匹配和设置都保存在本浏览器中。插件只会联网下载公开的认证雇主名单。',
+    'Job analysis, employer matching and settings stay in this browser. The extension only goes online to download the public accredited-employer list.',
+  ],
+  'settings.dataSources': ['数据来源与许可 ↗', 'Data sources and licences ↗'],
+  'settings.listDate': ['名单日期', 'List date'],
+  'settings.records': ['雇主记录', 'Employer records'],
+  'settings.lastChecked': ['上次检查：{date}', 'Last checked {date}'],
+  'settings.autoSyncFailed': ['自动更新失败：{error}', 'Automatic update failed: {error}'],
+  'settings.aboutList': ['关于名单与备份', 'About the list and backups'],
   'settings.openSettings': ['打开设置', 'Open settings'],
   'settings.language': ['界面语言', 'Language'],
   'settings.followBrowser': ['跟随浏览器', 'Follow browser'],
@@ -11,84 +22,7 @@ export const settingsMessages = {
     '语言设置未保存，请重试。',
     'Could not save the language. Please try again.',
   ],
-  'settings.exportedJobs': [
-    '已导出本地记录，文件不包含 Key。',
-    'Backup exported. Your API Key is not included.',
-  ],
-  'settings.keyConsentRequired': [
-    '请填写 Key 并勾选数据发送说明。',
-    'Enter your Key and agree to send job content for analysis.',
-  ],
-  'settings.apiPermissionRequired': [
-    '未获得 TypeSafe API 访问权限，仍可使用本地功能。',
-    'TypeSafe API access was not granted. Local features are still available.',
-  ],
-  'settings.keySavedNotice': [
-    'Key 已保存。可手动分析，或单独开启浏览职位时自动分析。',
-    'Key saved. You can analyse jobs manually or enable automatic analysis.',
-  ],
-  'settings.dismissNotice': ['关闭提示', 'Dismiss notification'],
   'settings.title': ['设置', 'Settings'],
-  'settings.basic': ['基础设置', 'Basic settings'],
-  'settings.keySaved': ['Key 已保存', 'Key saved'],
-  'settings.notConfigured': ['尚未设置', 'Not set up'],
-  'settings.getStarted': ['开始使用 TypeSafe', 'Get started with TypeSafe'],
-  'settings.signIn': ['注册或登录 TypeSafe ↗', 'Sign up or log in to TypeSafe ↗'],
-  'settings.createKey': ['创建 API Key ↗', 'Create an API Key ↗'],
-  'settings.pasteSaveKey': ['复制 Key，粘贴到下方并保存', 'Copy your Key, paste it below and save'],
-  'settings.replaceKey': [
-    '填写新 Key 以替换现有配置',
-    'Enter a new Key to replace the current one',
-  ],
-  'settings.pasteKey': ['粘贴你的 API Key', 'Paste your API Key'],
-  'settings.rememberKey': ['在此浏览器记住 Key', 'Remember Key in this browser'],
-  'settings.sessionKeyHint': [
-    '不勾选则仅保留到浏览器关闭。',
-    'Otherwise, your Key is kept until the browser closes.',
-  ],
-  'settings.consent': [
-    '我同意将用于分析的职位内容发送至 TypeSafe，费用计入我的账户。',
-    'I agree to send job content to TypeSafe for analysis, charged to my account.',
-  ],
-  'settings.saveKey': ['保存 Key', 'Save Key'],
-  'settings.keyCleared': ['Key 与分析授权已清除。', 'Key and analysis consent cleared.'],
-  'settings.clearKey': ['清除 Key', 'Clear Key'],
-  'settings.saveKeyHint': [
-    '保存 Key 不会发起分析请求。',
-    'Saving a Key does not start an analysis.',
-  ],
-  'settings.autoAnalyze': ['打开 SEEK 职位时自动分析', 'Automatically analyse jobs opened on SEEK'],
-  'settings.autoAnalyzeHint': [
-    '分析技能与经验要求，相同内容使用已有结果。',
-    'Analyse skills and experience requirements. Results are reused for unchanged content.',
-  ],
-  'settings.autoAnalyzeUnavailable': [
-    '保存 Key 并授权后可开启。',
-    'Save your Key and give consent to enable this.',
-  ],
-  'settings.more': ['更多设置', 'More settings'],
-  'settings.jobBackup': ['岗位备份', 'Job backup'],
-  'settings.savedJobs': ['已保存岗位', 'Saved jobs'],
-  'settings.bookmarks': ['收藏', 'Favourites'],
-  'settings.jobRetention': [
-    '未收藏记录保留 30 天，收藏保留到你删除；清理在打开插件时执行。卸载插件会丢失本地数据，建议导出备份。',
-    'Jobs without a favourite are kept for 30 days. Favourites remain until deleted. Cleanup runs when you open the extension. Export a backup before uninstalling to keep your data.',
-  ],
-  'settings.exportBackup': ['导出备份', 'Export backup'],
-  'settings.importBackup': ['导入备份', 'Import backup'],
-  'settings.backupTooLarge': ['文件不能超过 5 MB。', 'The file must be no larger than 5 MB.'],
-  'settings.importedJobs': ['已导入 {count} 条记录。', 'Imported {count} records.'],
-  'settings.clearJobsConfirm': [
-    '清空所有岗位、证据与任务记录？',
-    'Delete all jobs, evidence and analysis records?',
-  ],
-  'settings.jobsCleared': [
-    '本地岗位与任务记录已清空。',
-    'Local jobs and analysis records cleared.',
-  ],
-  'settings.confirmClear': ['确认清空', 'Delete all'],
-  'settings.cancel': ['取消', 'Cancel'],
-  'settings.clearJobs': ['清空岗位记录', 'Clear job records'],
   'settings.employerStatusFailed': [
     '无法读取本地名单状态。',
     'Could not read the local employer list status.',
@@ -102,10 +36,7 @@ export const settingsMessages = {
     'Local list updated. Return to SEEK to see the results.',
   ],
   'settings.tryAgain': ['请稍后重试', 'Please try again later'],
-  'settings.employerExported': [
-    '已导出雇主名单，不含岗位记录或 API Key。',
-    'Employer list exported. Job records and your API Key are not included.',
-  ],
+  'settings.employerExported': ['已导出雇主名单。', 'Employer list exported.'],
   'settings.employerExportFailed': ['导出失败：{error}', 'Export failed: {error}'],
   'settings.employerFileTooLarge': [
     '文件不能超过 {size} MiB',
@@ -116,14 +47,10 @@ export const settingsMessages = {
     'Import failed: {error}. Your local list is unchanged.',
   ],
   'settings.fileUnreadable': ['文件无法读取', 'Could not read the file'],
-  'settings.employerList': ['本地雇主名单', 'Local employer list'],
+  'settings.employerList': ['认证雇主名单', 'Accredited employer list'],
   'settings.employerListHint': [
     '每周自动更新完整名单，公司名称在本机匹配。',
     'The full list updates automatically every week. Company names are matched on this device.',
-  ],
-  'settings.employerListDate': [
-    '名单日期：{date} · {count} 条',
-    'List date: {date} · {count} employers',
   ],
   'settings.noEmployerList': ['尚无名单', 'No list yet'],
   'settings.checkingUpdates': ['正在更新…', 'Updating…'],
@@ -142,8 +69,4 @@ export const settingsMessages = {
     'The list may be out of date. A name match does not confirm current accreditation or visa support for a job.',
   ],
   'settings.employerSource': ['当前名单来源 ↗', 'Current list source ↗'],
-  'settings.operationFailed': [
-    '操作失败，请稍后重试。',
-    'Something went wrong. Please try again later.',
-  ],
 } as const;

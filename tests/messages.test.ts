@@ -7,9 +7,6 @@ describe('trusted extension sender', () => {
     expect(isTrustedSender({ id, url: `chrome-extension://${id}/sidepanel.html` }, id)).toBe(true);
     const sender = { id, url: `chrome-extension://${id}/sidepanel.html`, tab: { id: 10 } };
     expect(isTrustedSender(sender, id)).toBe(true);
-    expect(
-      isTrustedSender({ id, url: `chrome-extension://${id}/sidepanel.html#settings` }, id),
-    ).toBe(true);
   });
   it('rejects content scripts, other extensions and missing sender fields', () => {
     expect(isTrustedSender({ id, url: 'https://nz.seek.com/' }, id)).toBe(false);
@@ -20,8 +17,9 @@ describe('trusted extension sender', () => {
     expect(
       isTrustedSender({ id, url: `chrome-extension://${id}/sidepanel.html?proxy=true` }, id),
     ).toBe(false);
-    expect(
-      isTrustedSender({ id, url: `chrome-extension://${id}/sidepanel.html#unknown` }, id),
-    ).toBe(false);
+    for (const hash of ['#settings', '#unknown'])
+      expect(
+        isTrustedSender({ id, url: `chrome-extension://${id}/sidepanel.html${hash}` }, id),
+      ).toBe(false);
   });
 });

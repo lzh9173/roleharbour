@@ -3,7 +3,7 @@
     "message": "RoleHarbour · ニュージーランドの求人サポート"
   },
   "extensionDescription": {
-    "message": "Key なしで SEEK の要件原文と雇用主照合を表示。任意で TypeSafe JEV 分析を追加。"
+    "message": "SEEK NZ の求人で、応募準備リスト・ビザの記載・認定雇用主の確認を端末内で表示します。"
   },
   "openSettings": {
     "message": "設定を開く"

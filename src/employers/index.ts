@@ -1,17 +1,19 @@
 import { t } from '../i18n';
 import { aucklandDate, normalizeEmployerName, parseEmployerData, validDate } from './data';
-import { employerDatabase, replaceEmployerSnapshot } from './store';
+import { employerDatabase, replaceEmployerSnapshot, snapshotGeneration } from './store';
 import { findEmployerAliases } from './aliases';
 import { buildEmployerCandidateIndex } from './candidates';
+import { readBoundedBody, sha256Hex } from '../core/bytes';
+import { errorMessage } from '../core/errors';
 import {
-  EMPLOYER_FRESHNESS_MS,
   EMPLOYER_REFRESH_INTERVAL_MS,
+  EMPLOYER_RETRY_INTERVAL_MS,
   EMPLOYER_BACKUP_MAX_BYTES,
   SNAPSHOT_CATALOG_URL,
   SNAPSHOT_ORIGIN,
   type EmployerCacheStatus,
   type EmployerCheck,
-  type EmployerCheckOptions,
+  type EmployerRefreshOptions,
   type EmployerMatch,
   type EmployerRevision,
   type SnapshotMetadata,
@@ -20,7 +22,14 @@ import {
 export * from './types';
 export { normalizeEmployerName, parseEmployerData } from './data';
 
+const CATALOG_MAX_BYTES = 256 * 1024;
+const SNAPSHOT_MAX_BYTES = 12 * 1024 * 1024;
+
 let refreshInFlight: Promise<EmployerCacheStatus> | null = null;
+// Memory only, keyed to one committed snapshot. Any import or refresh, in this or
+// another extension context, changes the key; nothing is persisted.
+let candidateIndex: { key: string; find: ReturnType<typeof buildEmployerCandidateIndex> } | null =
+  null;
 
 async function metadata() {
   const db = await employerDatabase();
@@ -68,27 +77,7 @@ async function limitedDownload(
   const declared = response.headers.get('content-length');
   if (declared && (!/^\d+$/.test(declared) || Number(declared) > limit))
     throw new Error(t('errors.snapshotSize'));
-  const reader = response.body.getReader(),
-    chunks: Uint8Array[] = [];
-  let length = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      length += value.byteLength;
-      if (length > limit) throw new Error(t('errors.snapshotSize'));
-      chunks.push(value);
-    }
-  } finally {
-    await reader.cancel().catch(() => undefined);
-  }
-  const result = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return result;
+  return readBoundedBody(response.body, limit, () => new Error(t('errors.snapshotSize')));
 }
 
 interface Release {
@@ -129,7 +118,7 @@ function latestRelease(value: unknown): Release {
       item.row_count > 100_000 ||
       !Number.isSafeInteger(item.byte_size) ||
       item.byte_size < 1 ||
-      item.byte_size > 12 * 1024 * 1024 ||
+      item.byte_size > SNAPSHOT_MAX_BYTES ||
       typeof item.sha256 !== 'string' ||
       !/^[a-f0-9]{64}$/.test(item.sha256) ||
       item.csv_path !== `/snapshots/${item.snapshot_date}/employers.csv`
@@ -144,7 +133,7 @@ function latestRelease(value: unknown): Release {
  * INZ's website lookup endpoint is deliberately not called; employer names never leave this module.
  */
 export function refreshEmployerSnapshot(
-  options: Pick<EmployerCheckOptions, 'force' | 'signal'> = {},
+  options: EmployerRefreshOptions = {},
 ): Promise<EmployerCacheStatus> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = syncSnapshot(options).finally(() => {
@@ -153,9 +142,7 @@ export function refreshEmployerSnapshot(
   return refreshInFlight;
 }
 
-async function syncSnapshot(
-  options: Pick<EmployerCheckOptions, 'force' | 'signal'>,
-): Promise<EmployerCacheStatus> {
+async function syncSnapshot(options: EmployerRefreshOptions): Promise<EmployerCacheStatus> {
   const now = Date.now();
   let revision = 0;
   if (options.signal?.aborted) return getEmployerCacheStatus();
@@ -164,11 +151,15 @@ async function syncSnapshot(
     const tx = db.transaction('metadata', 'readwrite');
     revision = ((await tx.store.get('revision')) as EmployerRevision | undefined)?.revision ?? 0;
     const previous = (await tx.store.get('sync')) as SyncState | undefined;
-    if (!options.force && previous && now - previous.lastAttemptAt < EMPLOYER_REFRESH_INTERVAL_MS) {
+    const interval = previous?.lastError
+      ? EMPLOYER_RETRY_INTERVAL_MS
+      : EMPLOYER_REFRESH_INTERVAL_MS;
+    if (!options.force && previous && now - previous.lastAttemptAt < interval) {
       await tx.done;
       return getEmployerCacheStatus();
     }
-    // Persist attempts before networking, including failures, so restarts do not retry all week.
+    // Persist attempts before networking so restarts do not retry in a loop; a failed attempt
+    // is retried after the shorter interval instead of waiting a week.
     await tx.store.put({ lastAttemptAt: now, lastError: null }, 'sync');
     await tx.done;
   } finally {
@@ -181,7 +172,7 @@ async function syncSnapshot(
   if (options.signal?.aborted) controller.abort();
   let error: string | null = null;
   try {
-    const bytes = await limitedDownload(SNAPSHOT_CATALOG_URL, 256 * 1024, controller.signal);
+    const bytes = await limitedDownload(SNAPSHOT_CATALOG_URL, CATALOG_MAX_BYTES, controller.signal);
     const release = latestRelease(
       JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)),
     );
@@ -192,10 +183,7 @@ async function syncSnapshot(
       const url = `${SNAPSHOT_ORIGIN}${release.csv_path}`;
       const csv = await limitedDownload(url, release.byte_size, controller.signal);
       if (csv.byteLength !== release.byte_size) throw new Error(t('errors.snapshotFileSize'));
-      const digest = await crypto.subtle.digest('SHA-256', csv as BufferSource);
-      const checksum = [...new Uint8Array(digest)]
-        .map((v) => v.toString(16).padStart(2, '0'))
-        .join('');
+      const checksum = await sha256Hex(csv as BufferSource);
       if (checksum !== release.sha256) throw new Error(t('errors.snapshotChecksum'));
       const records = parseEmployerData(
         new TextDecoder('utf-8', { fatal: true }).decode(csv),
@@ -227,7 +215,7 @@ async function syncSnapshot(
       if (committedRevision !== null) revision = committedRevision;
     }
   } catch (cause) {
-    error = cause instanceof Error ? cause.message : t('errors.snapshotSync');
+    error = errorMessage(cause, t('errors.snapshotSync'));
   } finally {
     clearTimeout(timer);
     options.signal?.removeEventListener('abort', abort);
@@ -395,28 +383,33 @@ export async function importEmployerBackup(input: string): Promise<EmployerCache
   return importEmployerData(JSON.stringify(backup.records), { format: 'json', ...source });
 }
 
-export async function checkEmployers(
-  names: string[],
-  options: EmployerCheckOptions = {},
-): Promise<EmployerCheck[]> {
+/** Local lookups only: page checks never trigger a download (the worker's schedule does). */
+export async function checkEmployers(names: string[]): Promise<EmployerCheck[]> {
   if (!Array.isArray(names) || names.some((name) => typeof name !== 'string'))
     throw new Error(t('errors.employerNameInput'));
   if (names.length === 0) return [];
-  if (options.refresh === true && !options.signal?.aborted) await refreshEmployerSnapshot(options);
   const db = await employerDatabase();
   const local = new Map<string, EmployerCheck>();
   try {
     // One read transaction keeps names and their source metadata on the same snapshot
     // even when another context completes a refresh during a batch.
     const tx = db.transaction(['employers', 'metadata']);
-    const [snapshotValue, syncValue] = await Promise.all([
+    const [snapshotValue, syncValue, revisionValue] = await Promise.all([
       tx.objectStore('metadata').get('snapshot'),
       tx.objectStore('metadata').get('sync'),
+      tx.objectStore('metadata').get('revision'),
     ]);
     const snapshot = snapshotValue as SnapshotMetadata | undefined;
     const sync = syncValue as SyncState | undefined;
+    const indexKey = JSON.stringify([
+      snapshotGeneration(),
+      (revisionValue as EmployerRevision | undefined)?.revision ?? 0,
+      snapshot?.importedAt,
+      snapshot?.count,
+      snapshot?.sha256,
+    ]);
     const result: EmployerCheck[] = [];
-    let findCandidates: ReturnType<typeof buildEmployerCandidateIndex> | undefined;
+    let findCandidates = candidateIndex?.key === indexKey ? candidateIndex.find : undefined;
     for (const query of names) {
       const key = normalizeEmployerName(query);
       // Suggestions expand '&', but exact identities do not. Cache both inputs so
@@ -427,14 +420,9 @@ export async function checkEmployers(
         status: 'unavailable',
         matches: [],
         checkedAt: null,
-        stale: true,
         snapshotSourceUrl: snapshot?.snapshotSourceUrl,
         sourceDate: snapshot?.sourceDate,
       };
-      if (options.signal?.aborted) {
-        result.push({ ...base, note: t('errors.employerCheckCancelled') });
-        continue;
-      }
       if (key.length < 2 || query.length > 500) {
         result.push({ ...base, note: t('errors.employerNameLength') });
         continue;
@@ -469,24 +457,21 @@ export async function checkEmployers(
       }
       let candidateCount = 0;
       if (matches.length === 0 && key.length >= 3 && findEmployerAliases(key).length === 0) {
-        // Build once per batch, inside the same snapshot transaction. No persistent stale index.
-        findCandidates ??= buildEmployerCandidateIndex(await tx.objectStore('employers').getAll());
+        // Build inside the same snapshot transaction, then reuse it until the snapshot changes.
+        if (!findCandidates) {
+          findCandidates = buildEmployerCandidateIndex(await tx.objectStore('employers').getAll());
+          candidateIndex = { key: indexKey, find: findCandidates };
+        }
         const candidates = findCandidates(query);
         candidateCount = candidates.length;
         matches = candidates.slice(0, 5);
       }
       const verified = matches.map((m) => m.lastVerifiedAt ?? 0);
       const checkedAt = matches.length ? Math.min(...verified) || null : snapshot.generatedAt;
-      const stale =
-        !checkedAt ||
-        Date.now() - checkedAt >= EMPLOYER_FRESHNESS_MS ||
-        Date.now() - snapshot.generatedAt >= EMPLOYER_FRESHNESS_MS ||
-        !!sync?.lastError;
       const resolved: EmployerCheck = {
         ...base,
         matches,
         checkedAt,
-        stale,
         status: matches.length > 1 ? 'ambiguous' : matches.length === 0 ? 'not_found' : 'matched',
         note: t('errors.employerMatchNote'),
       };
@@ -494,7 +479,6 @@ export async function checkEmployers(
       if (matches.length > 1) resolved.note = t('errors.employerMultipleMatches');
       if (candidateCount) {
         resolved.status = 'ambiguous';
-        resolved.candidateCount = candidateCount;
         resolved.note = t('errors.employerCandidates', {
           count: candidateCount,
           shown: matches.length,
