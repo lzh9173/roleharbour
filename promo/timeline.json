@@ -1,0 +1,32 @@
+{
+  "_note": "Shared by music.py and video.js so sound and picture cut together. Seconds; 100 BPM, so one beat is 0.6 s and every cut lands on a beat.",
+  "fps": 60,
+  "duration": 25.8,
+  "bpm": 100,
+  "shots": [
+    { "id": 1, "start": 0, "end": 1.8 },
+    { "id": 2, "start": 1.8, "end": 5.4 },
+    { "id": 3, "start": 5.4, "end": 7.2 },
+    { "id": 4, "start": 7.2, "end": 9.6 },
+    { "id": 5, "start": 9.6, "end": 12.6 },
+    { "id": 6, "start": 12.6, "end": 16.2 },
+    { "id": 7, "start": 16.2, "end": 18.6 },
+    { "id": 8, "start": 18.6, "end": 21 },
+    { "id": 9, "start": 21, "end": 22.8 },
+    { "id": 10, "start": 22.8, "end": 25.8 }
+  ],
+  "cues": {
+    "slam": 0.08,
+    "flashCuts": [1.8, 3, 4.2],
+    "wordSwaps": [5.4, 6, 6.6],
+    "drop": 7.2,
+    "whooshes": [9.6, 18.6],
+    "tiles": [10.2, 10.5, 10.8, 11.1, 11.4, 11.7],
+    "chips": [12.75, 13.05, 13.35, 13.65, 13.95, 14.25, 14.55, 14.85, 15.15, 15.45, 15.75],
+    "markerStart": 17.4,
+    "markerEnd": 18.2,
+    "stamps": [19.8, 20.4],
+    "puff": 21.6,
+    "final": 22.8
+  }
+}
