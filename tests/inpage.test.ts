@@ -7,6 +7,7 @@ import type { EmployerCheck } from '../src/employers';
 import { applyLanguagePreference } from '../src/i18n/preference';
 import { t } from '../src/i18n';
 import { localAnalysis, type LocalReading } from '../src/core/local-analysis';
+import { classConflicts } from './class-conflicts';
 
 const description =
   'Design and maintain software systems, review application changes and diagnose production incidents with the engineering team.';
@@ -231,6 +232,29 @@ describe('on-device job panel', () => {
       expect(cell.querySelectorAll('dd')).toHaveLength(1);
       expect(cell.querySelector('dd')?.textContent).toBe(t('page.notMentioned'));
     }
+  });
+
+  it('styles verdicts, chips, badges and controls without competing utilities', async () => {
+    // A verdict with a source sentence is a button; as a button it lost its pill border.
+    setBody(`${requirementsBody}\nApplicants must have the right to work in New Zealand.`);
+    await mount();
+    await flush();
+    const verdict = fact(shadow('detail'), t('page.workRights')).querySelector('dd > button');
+    expect(verdict?.textContent).toBe(t('page.required'));
+    act(() => (verdict as HTMLButtonElement).click());
+    expect([...shadows.values()].flatMap((root) => classConflicts(root))).toEqual([]);
+  });
+
+  it('styles the retry control without competing utilities', async () => {
+    send.mockImplementation((message) =>
+      message.type === 'page:local'
+        ? Promise.resolve({ ok: false, error: 'Synthetic local failure' })
+        : Promise.resolve(reply(message)),
+    );
+    await mount();
+    await flush();
+    expect(button(shadow('detail'), t('page.retry'))).toBeDefined();
+    expect(classConflicts(shadow('detail'))).toEqual([]);
   });
 
   it('labels a local experience estimate and prefers stated years', async () => {

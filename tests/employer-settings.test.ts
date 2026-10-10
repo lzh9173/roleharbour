@@ -7,6 +7,7 @@ import { EmployerSettings } from '../src/ui/EmployerSettings';
 import { formatDate } from '../src/i18n';
 import { applyLanguagePreference } from '../src/i18n/preference';
 import { settingsStyles as styles } from '../src/ui/styles';
+import { classConflicts } from './class-conflicts';
 
 const api = vi.hoisted(() => ({
   getEmployerCacheStatus: vi.fn(),
@@ -121,6 +122,11 @@ afterEach(async () => {
 });
 
 describe('local employer list settings', () => {
+  it('styles every control without competing utilities', async () => {
+    await mount();
+    expect(classConflicts(container)).toEqual([]);
+  });
+
   it('reads only local status on mount and shows the weekly list date and count', async () => {
     await mount();
     expect(container.querySelector('h2')?.textContent).toBe('认证雇主名单');
