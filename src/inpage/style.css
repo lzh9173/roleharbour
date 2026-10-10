@@ -1,7 +1,6 @@
 @import '../styles/tailwind.css';
 @source './*.tsx';
 @source './styles.ts';
-@source '../ui/RequirementsView.tsx';
 
 /* Chrome does not apply @property registrations inside shadow roots. Reset the
    variables used by our utilities locally, without adding rules to SEEK. */
@@ -39,15 +38,8 @@
   color-scheme: light;
   position: relative;
   z-index: 2;
-  font:
-    14px/1.5 -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    'PingFang SC',
-    'Microsoft YaHei',
-    'Noto Sans',
-    sans-serif;
-  color: #2e3849;
+  font: 14px/1.5 --theme(--font-sans);
+  color: var(--color-rh-text);
   --roleharbour-card-margin-top: 18px;
 }
 

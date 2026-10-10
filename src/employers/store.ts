@@ -7,6 +7,10 @@ interface EmployerDatabase extends DBSchema {
   metadata: { key: string; value: SnapshotMetadata | SyncState | EmployerRevision };
 }
 
+let generation = 0;
+/** Changes after every snapshot replacement committed from this context. */
+export const snapshotGeneration = () => generation;
+
 export const employerDatabase = () =>
   openDB<EmployerDatabase>('seek-filter-employers', 1, {
     upgrade(db) {
@@ -41,6 +45,7 @@ export async function replaceEmployerSnapshot(
     await tx.objectStore('metadata').put({ revision: revision + 1 }, 'revision');
     if (options.clearSync) await tx.objectStore('metadata').delete('sync');
     await tx.done;
+    generation++;
     return revision + 1;
   } catch (error) {
     try {

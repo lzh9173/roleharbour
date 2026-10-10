@@ -1,26 +1,21 @@
-import { emptyDraft } from './fixtures/job';
+import { sampleJob } from './fixtures/job';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PageAnalysisMessage, PageSender } from '../src/core/page-messages';
+import type { PageSender } from '../src/core/page-messages';
 import { applyLanguagePreference } from '../src/i18n/preference';
 import { t } from '../src/i18n';
 
 const mocks = vi.hoisted(() => ({
-  analyze: vi.fn(),
+  localAnalysis: vi.fn(),
   restrict: vi.fn(),
-  listJobs: vi.fn(),
-  preferences: vi.fn(),
-  setAuto: vi.fn(),
+  removeRetired: vi.fn(),
   employers: vi.fn(),
   employerCache: vi.fn(),
   refreshSnapshot: vi.fn(),
   schedule: vi.fn(),
 }));
-vi.mock('../src/core/analyze', () => ({ analyze: mocks.analyze }));
-vi.mock('../src/storage/settings', () => ({
-  restrictKeyAccess: mocks.restrict,
-  getPagePreferences: mocks.preferences,
-  setAutoAnalyze: mocks.setAuto,
-}));
+vi.mock('../src/core/local-analysis', () => ({ localAnalysis: mocks.localAnalysis }));
+vi.mock('../src/storage/access', () => ({ restrictStorageAccess: mocks.restrict }));
+vi.mock('../src/storage/retired-data', () => ({ removeRetiredData: mocks.removeRetired }));
 vi.mock('../src/employers', () => ({
   checkEmployers: mocks.employers,
   getEmployerCacheStatus: mocks.employerCache,
@@ -28,7 +23,6 @@ vi.mock('../src/employers', () => ({
 vi.mock('../src/employers/schedule', () => ({
   startEmployerSnapshotSchedule: mocks.schedule,
 }));
-vi.mock('../src/storage/db', () => ({ listJobs: mocks.listJobs }));
 vi.mock('wxt/utils/define-background', () => ({ defineBackground: (main: () => void) => main }));
 vi.mock('../src/i18n/background', () => ({
   startBackgroundLanguage: () => ({ ready: Promise.resolve(), dispose: () => {} }),
@@ -36,8 +30,7 @@ vi.mock('../src/i18n/background', () => ({
 import background from '../entrypoints/background';
 
 const extensionId = 'abcdefghijklmnopabcdefghijklmnop';
-const firstId = '118a5967-d0b1-42c2-bf6b-0cc001f02a14';
-const secondId = 'df4d4520-7644-45e4-af56-27effa8195ad';
+const requestId = '118a5967-d0b1-42c2-bf6b-0cc001f02a14';
 const sender: PageSender = {
   id: extensionId,
   url: 'https://nz.seek.com/jobs',
@@ -46,18 +39,15 @@ const sender: PageSender = {
   tab: { id: 10 },
   documentId: 'same-spa-document',
 };
+const settingsSender = {
+  id: extensionId,
+  url: `chrome-extension://${extensionId}/sidepanel.html`,
+};
 const currentTab = { id: 10, url: 'https://nz.seek.com/jobs?jobId=12340004' };
-const message: PageAnalysisMessage = {
-  type: 'page:analyze',
-  requestId: firstId,
-  surface: 'page',
-  mode: 'jev',
-  draft: {
-    ...emptyDraft,
-    title: 'Systems Administrator',
-    body: 'Maintain production Linux systems and automate deployment processes for internal teams.',
-    sourceUrl: 'https://nz.seek.com/job/12340004',
-  },
+const local = { type: 'page:local', title: sampleJob.title, body: sampleJob.body };
+const reading = {
+  visa: { sponsorship: { choice: 'not_mentioned', evidence: [] } },
+  prep: { entries: [] },
 };
 type Listener = (
   input: unknown,
@@ -66,7 +56,7 @@ type Listener = (
 ) => boolean;
 let listener: Listener;
 let getTab: ReturnType<typeof vi.fn>;
-let containsPermission: ReturnType<typeof vi.fn>;
+let createTab: ReturnType<typeof vi.fn>;
 let requestPermission: ReturnType<typeof vi.fn>;
 function send(input: unknown, from: PageSender = sender) {
   const response = vi.fn();
@@ -75,17 +65,15 @@ function send(input: unknown, from: PageSender = sender) {
 }
 
 beforeEach(() => {
-  mocks.analyze.mockReset().mockResolvedValue({ ok: true, job: { id: 'local-result' } });
+  mocks.localAnalysis.mockReset().mockReturnValue(reading);
   mocks.restrict.mockReset().mockResolvedValue(undefined);
-  mocks.listJobs.mockReset().mockResolvedValue([]);
-  mocks.preferences.mockReset().mockResolvedValue({ autoAnalyze: false, ready: true });
-  mocks.setAuto.mockReset().mockResolvedValue({ autoAnalyze: true, ready: true });
+  mocks.removeRetired.mockReset().mockResolvedValue(undefined);
   mocks.employers.mockReset().mockResolvedValue([]);
   mocks.employerCache.mockReset().mockResolvedValue({ recordCount: 0 });
   mocks.refreshSnapshot.mockReset().mockResolvedValue({ recordCount: 2 });
   mocks.schedule.mockReset().mockReturnValue({ refresh: mocks.refreshSnapshot, dispose: vi.fn() });
   getTab = vi.fn().mockResolvedValue(currentTab);
-  containsPermission = vi.fn().mockResolvedValue(true);
+  createTab = vi.fn().mockResolvedValue({ id: 11 });
   requestPermission = vi.fn();
   vi.stubGlobal('chrome', {
     runtime: {
@@ -101,40 +89,33 @@ beforeEach(() => {
     sidePanel: { setPanelBehavior: vi.fn().mockResolvedValue(undefined) },
     tabs: {
       get: getTab,
-      create: vi.fn().mockResolvedValue({ id: 11 }),
+      create: createTab,
       sendMessage: vi.fn().mockResolvedValue(undefined),
     },
-    permissions: { contains: containsPermission, request: requestPermission },
+    permissions: { contains: vi.fn().mockResolvedValue(true), request: requestPermission },
   });
   (background as unknown as () => void)();
 });
 afterEach(() => vi.unstubAllGlobals());
 
-it('sends retry progress only to the requesting document and tolerates a closed tab', async () => {
-  vi.mocked(chrome.tabs.sendMessage).mockRejectedValue(new Error('Tab closed'));
-  mocks.analyze.mockImplementation(async (_id, _draft, _mode, _signal, options) => {
-    options.onRetry(1);
-    return { ok: true };
+describe('worker start', () => {
+  it('restricts storage to trusted contexts and removes retired AI data once per start', () => {
+    expect(mocks.restrict).toHaveBeenCalledExactlyOnceWith();
+    expect(mocks.removeRetired).toHaveBeenCalledExactlyOnceWith();
   });
-  const call = send(message);
-  await vi.waitFor(() => expect(call.response).toHaveBeenCalledWith({ ok: true }));
-  expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
-    10,
-    {
-      type: 'page:analysis-retry',
-      requestId: firstId,
-      attempt: 1,
-    },
-    { documentId: sender.documentId },
-  );
+
+  it('keeps routing messages when retired-data cleanup fails', async () => {
+    mocks.removeRetired.mockReset().mockRejectedValue(new Error('IndexedDB unavailable'));
+    (background as unknown as () => void)();
+    await Promise.resolve();
+    const call = send({ type: 'page:language' });
+    await vi.waitFor(() =>
+      expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: true })),
+    );
+  });
 });
 
 describe('full employer list refresh boundary', () => {
-  const settingsSender = {
-    id: extensionId,
-    url: `chrome-extension://${extensionId}/sidepanel.html#settings`,
-  };
-
   it('routes only a trusted settings request through the shared update schedule', async () => {
     const call = send({ type: 'employers:refresh' }, settingsSender);
     expect(call.asynchronous).toBe(true);
@@ -162,7 +143,7 @@ describe('full employer list refresh boundary', () => {
     mocks.refreshSnapshot.mockRejectedValue(new Error('private storage path'));
     const call = send({ type: 'employers:refresh' }, settingsSender);
     await vi.waitFor(() => expect(call.response).toHaveBeenCalled());
-    expect(call.response.mock.calls[0]![0]).toEqual({ ok: false, error: t('page.listReadError') });
+    expect(call.response.mock.calls[0]![0]).toEqual({ ok: false, error: t('settings.tryAgain') });
   });
 
   it('broadcasts only an invalidation to extension views and supported public SEEK pages', async () => {
@@ -187,16 +168,52 @@ describe('full employer list refresh boundary', () => {
   });
 });
 
-describe('background analysis across SEEK SPA navigation', () => {
+describe('on-device page reading across SEEK SPA navigation', () => {
   it('passes exact two-letter company names through the page message boundary', async () => {
     const call = send({ type: 'page:employers', names: ['QX'] });
     await vi.waitFor(() =>
       expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: true })),
     );
-    expect(mocks.employers).toHaveBeenCalledExactlyOnceWith(['QX'], { refresh: false });
+    expect(mocks.employers).toHaveBeenCalledExactlyOnceWith(['QX']);
     expect(send({ type: 'page:employers', names: ['Q'] }).response).toHaveBeenCalledWith(
       expect.objectContaining({ ok: false }),
     );
+  });
+
+  it('answers page:local with only the on-device reading', async () => {
+    const call = send(local);
+    expect(call.asynchronous).toBe(true);
+    await vi.waitFor(() =>
+      expect(call.response).toHaveBeenCalledExactlyOnceWith({ ok: true, reading }),
+    );
+    expect(mocks.localAnalysis).toHaveBeenCalledExactlyOnceWith(sampleJob.title, sampleJob.body);
+    expect(mocks.employers).not.toHaveBeenCalled();
+    expect(createTab).not.toHaveBeenCalled();
+  });
+
+  it('validates page:local title and body before computing anything', () => {
+    for (const input of [
+      { type: 'page:local', title: 'Nurse', body: 'short' },
+      { type: 'page:local', title: 'N', body: sampleJob.body },
+      { type: 'page:local', title: sampleJob.title, body: 'a'.repeat(24001) },
+      { type: 'page:local', title: sampleJob.title },
+    ]) {
+      const call = send(input);
+      expect(call.asynchronous).toBe(false);
+      expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+    }
+    expect(getTab).not.toHaveBeenCalled();
+    expect(mocks.localAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('returns an error instead of a reading when the local rules throw', async () => {
+    mocks.localAnalysis.mockImplementation(() => {
+      throw new Error('rules failed');
+    });
+    const call = send(local);
+    await vi.waitFor(() => expect(call.response).toHaveBeenCalled());
+    expect(call.response.mock.calls[0]![0]).toMatchObject({ ok: false });
+    expect(call.response.mock.calls[0]![0]).not.toHaveProperty('reading');
   });
 
   it('routes page employer checks to local data and rejects forced remote refreshes', async () => {
@@ -208,53 +225,54 @@ describe('background analysis across SEEK SPA navigation', () => {
         cache: { recordCount: 0 },
       }),
     );
-    expect(mocks.employers).toHaveBeenCalledExactlyOnceWith(['Acme Limited'], { refresh: false });
+    expect(mocks.employers).toHaveBeenCalledExactlyOnceWith(['Acme Limited']);
     const forced = send({ type: 'page:employers', names: ['Acme Limited'], force: true });
     expect(forced.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
     expect(mocks.employers).toHaveBeenCalledTimes(1);
     expect(mocks.refreshSnapshot).not.toHaveBeenCalled();
-    expect(containsPermission).not.toHaveBeenCalled();
     expect(requestPermission).not.toHaveBeenCalled();
+  });
+
+  it('reports a localised list error instead of an internal employer lookup failure', async () => {
+    mocks.employers.mockRejectedValue(new Error('IndexedDB private path'));
+    const call = send({ type: 'page:employers', names: ['Acme Limited'] });
+    await vi.waitFor(() => expect(call.response).toHaveBeenCalled());
+    expect(call.response.mock.calls[0]![0]).toEqual({ ok: false, error: t('page.listReadError') });
   });
 
   it('fails closed when Chrome does not expose the current tab URL', async () => {
     getTab.mockResolvedValue({ id: 10 });
-    const call = send(message);
+    const call = send(local);
     await vi.waitFor(() =>
       expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false })),
     );
-    expect(mocks.analyze).not.toHaveBeenCalled();
+    expect(mocks.localAnalysis).not.toHaveBeenCalled();
   });
 
   it.each(['profile', 'saved-jobs', 'my-jobs', 'recommended-jobs', 'apply'])(
-    'rejects a matching job identity on the private /%s surface',
+    'rejects reading and list checks on the private /%s surface',
     async (path) => {
       getTab.mockResolvedValue({
         id: 10,
         url: `https://nz.seek.com/${path}?selectedjob=12340004`,
       });
-      const call = send(message);
-      await vi.waitFor(() =>
-        expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false })),
-      );
-      expect(mocks.analyze).not.toHaveBeenCalled();
+      const reading = send(local);
+      const list = send({ type: 'page:employers', names: ['Acme Limited'] });
+      await vi.waitFor(() => {
+        expect(reading.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+        expect(list.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+      });
+      expect(mocks.localAnalysis).not.toHaveBeenCalled();
+      expect(mocks.employers).not.toHaveBeenCalled();
     },
   );
 
   it('uses the current tab identity when sender.url is still the initial search page', async () => {
-    const call = send(message);
-    expect(call.asynchronous).toBe(true);
+    const call = send(local);
     await vi.waitFor(() =>
-      expect(call.response).toHaveBeenCalledWith({ ok: true, job: { id: 'local-result' } }),
+      expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: true })),
     );
-    expect(getTab).toHaveBeenCalledWith(10);
-    expect(mocks.analyze).toHaveBeenCalledExactlyOnceWith(
-      firstId,
-      message.draft,
-      'jev',
-      expect.any(AbortSignal),
-      { automatic: undefined, force: undefined, onRetry: expect.any(Function) },
-    );
+    expect(getTab).toHaveBeenCalledExactlyOnceWith(10);
   });
 
   it('does not use a valid current tab URL to bypass invalid original sender metadata', async () => {
@@ -262,140 +280,123 @@ describe('background analysis across SEEK SPA navigation', () => {
       { ...sender, origin: 'https://evil.example' },
       { ...sender, url: 'https://evil.example/jobs' },
       { ...sender, frameId: 1 },
+      { ...sender, id: undefined },
     ]) {
-      expect(send(message, invalid).asynchronous).toBe(false);
+      const call = send(local, invalid);
+      expect(call.asynchronous).toBe(false);
+      expect(call.response).not.toHaveBeenCalled();
     }
     expect(getTab).not.toHaveBeenCalled();
-    expect(mocks.analyze).not.toHaveBeenCalled();
+    expect(mocks.localAnalysis).not.toHaveBeenCalled();
 
     getTab.mockResolvedValue({ ...currentTab, url: 'https://evil.example/jobs?jobId=12340004' });
-    const changedOrigin = send(message);
+    const changedOrigin = send(local);
     await vi.waitFor(() =>
       expect(changedOrigin.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false })),
     );
-    expect(mocks.analyze).not.toHaveBeenCalled();
-  });
-
-  it('cancels a reserved request while current tab validation is pending and then releases its slot', async () => {
-    let resolveTab!: (value: typeof currentTab) => void;
-    getTab.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveTab = resolve;
-        }),
-    );
-    const call = send(message);
-    expect(call.asynchronous).toBe(true);
-    expect(mocks.analyze).not.toHaveBeenCalled();
-    const cancel = send({ type: 'page:cancel', requestId: firstId });
-    expect(cancel.response).toHaveBeenCalledWith({ ok: true });
-    resolveTab(currentTab);
-    await vi.waitFor(() =>
-      expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false })),
-    );
-    expect(mocks.analyze).not.toHaveBeenCalled();
-
-    const retry = send({ ...message, requestId: secondId });
-    await vi.waitFor(() =>
-      expect(retry.response).toHaveBeenCalledWith(expect.objectContaining({ ok: true })),
-    );
-    expect(mocks.analyze).toHaveBeenCalledExactlyOnceWith(
-      secondId,
-      message.draft,
-      'jev',
-      expect.any(AbortSignal),
-      { automatic: undefined, force: undefined, onRetry: expect.any(Function) },
-    );
-  });
-
-  it('reserves one tab slot before awaiting URL lookup and refuses cross-tab cancellation', async () => {
-    let resolveTab!: (value: typeof currentTab) => void;
-    getTab.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveTab = resolve;
-        }),
-    );
-    const first = send(message);
-    const duplicate = send({ ...message, requestId: secondId });
-    expect(duplicate.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
-    expect(getTab).toHaveBeenCalledTimes(1);
-    const foreignCancel = send(
-      { type: 'page:cancel', requestId: firstId },
-      { ...sender, tab: { id: 99 } },
-    );
-    expect(foreignCancel.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
-    resolveTab(currentTab);
-    await vi.waitFor(() =>
-      expect(first.response).toHaveBeenCalledWith(expect.objectContaining({ ok: true })),
-    );
-    expect(mocks.analyze).toHaveBeenCalledExactlyOnceWith(
-      firstId,
-      message.draft,
-      'jev',
-      expect.any(AbortSignal),
-      { automatic: undefined, force: undefined, onRetry: expect.any(Function) },
-    );
-    expect((mocks.analyze.mock.calls[0]![3] as AbortSignal).aborted).toBe(false);
+    expect(mocks.localAnalysis).not.toHaveBeenCalled();
   });
 });
 
-describe('page automatic analysis preference boundary', () => {
-  it('does not create an automatic task when the saved preference is on but API access is no longer ready', async () => {
-    mocks.preferences.mockResolvedValue({ provider: 'jev', autoAnalyze: true, ready: false });
-    const call = send({ ...message, mode: 'jev', automatic: true });
+describe('internal errors', () => {
+  it('keeps tab lookup errors inside the worker', async () => {
+    getTab.mockRejectedValueOnce(new Error('No tab with id: 10'));
+    const reading = send(local);
     await vi.waitFor(() =>
-      expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false })),
-    );
-    expect(mocks.analyze).not.toHaveBeenCalled();
-  });
-
-  it('refuses automatic analysis until enabled and then passes the flag to the orchestrator', async () => {
-    const automatic = { ...message, mode: 'jev', automatic: true };
-    const disabled = send(automatic);
-    await vi.waitFor(() =>
-      expect(disabled.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false })),
-    );
-    expect(mocks.analyze).not.toHaveBeenCalled();
-
-    mocks.preferences.mockResolvedValue({ provider: 'jev', autoAnalyze: true, ready: true });
-    const enabled = send({ ...automatic, requestId: secondId });
-    await vi.waitFor(() =>
-      expect(enabled.response).toHaveBeenCalledWith(expect.objectContaining({ ok: true })),
-    );
-    expect(mocks.analyze).toHaveBeenCalledExactlyOnceWith(
-      secondId,
-      message.draft,
-      'jev',
-      expect.any(AbortSignal),
-      { automatic: true, force: undefined, onRetry: expect.any(Function) },
-    );
-  });
-
-  it('returns only preferences and refuses preference changes after navigating to a private surface', async () => {
-    const view = send({ type: 'page:preferences' });
-    await vi.waitFor(() =>
-      expect(view.response).toHaveBeenCalledWith({
-        ok: true,
-        preferences: { autoAnalyze: false, ready: true },
+      expect(reading.response).toHaveBeenCalledWith({
+        ok: false,
+        error: t('errors.requestFailed'),
       }),
     );
-    const enable = send({ type: 'page:auto', enabled: true });
-    await vi.waitFor(() =>
-      expect(enable.response).toHaveBeenCalledWith({
-        ok: true,
-        preferences: { autoAnalyze: true, ready: true },
-      }),
-    );
-    expect(mocks.setAuto).toHaveBeenCalledExactlyOnceWith(true, 'jev');
+  });
+});
 
-    getTab.mockResolvedValue({ id: 10, url: 'https://nz.seek.com/profile' });
-    const blocked = send({ type: 'page:auto', enabled: true });
+describe('settings link', () => {
+  it('opens only the packaged settings page and refuses an arbitrary URL or section', async () => {
+    const call = send({ type: 'page:open-settings' });
+    expect(call.asynchronous).toBe(true);
+    await vi.waitFor(() => expect(call.response).toHaveBeenCalledWith({ ok: true }));
+    expect(createTab).toHaveBeenCalledExactlyOnceWith({
+      url: `chrome-extension://${extensionId}/sidepanel.html`,
+    });
+    for (const input of [
+      { type: 'page:open-settings', url: 'https://evil.example/' },
+      { type: 'page:open-settings', section: 'settings' },
+    ])
+      expect(send(input).response).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+    expect(createTab).toHaveBeenCalledTimes(1);
+  });
+
+  it('brings an open settings tab forward instead of opening another', async () => {
+    const getContexts = vi.fn().mockResolvedValue([{ tabId: 7, windowId: 3 }]);
+    const updateTab = vi.fn().mockResolvedValue({});
+    const updateWindow = vi.fn().mockResolvedValue({});
+    Object.assign(chrome.runtime, { getContexts });
+    Object.assign(chrome.tabs, { update: updateTab });
+    Object.assign(chrome, { windows: { update: updateWindow } });
+    const call = send({ type: 'page:open-settings' });
+    await vi.waitFor(() => expect(call.response).toHaveBeenCalledWith({ ok: true }));
+    expect(getContexts).toHaveBeenCalledWith({
+      contextTypes: ['TAB', 'SIDE_PANEL'],
+      documentUrls: [`chrome-extension://${extensionId}/sidepanel.html`],
+    });
+    expect(updateTab).toHaveBeenCalledExactlyOnceWith(7, { active: true });
+    expect(updateWindow).toHaveBeenCalledExactlyOnceWith(3, { focused: true });
+    expect(createTab).not.toHaveBeenCalled();
+  });
+
+  it('reports a failure to open settings', async () => {
+    createTab.mockRejectedValue(new Error('Tabs unavailable'));
+    const call = send({ type: 'page:open-settings' });
     await vi.waitFor(() =>
-      expect(blocked.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false })),
+      expect(call.response).toHaveBeenCalledWith({ ok: false, error: t('errors.settingsOpen') }),
     );
-    expect(mocks.setAuto).toHaveBeenCalledTimes(1);
-    expect(mocks.analyze).not.toHaveBeenCalled();
+  });
+});
+
+describe('removed AI analysis messages', () => {
+  const draft = { ...sampleJob, sourceUrl: 'https://nz.seek.com/job/12340004' };
+  it.each([
+    { type: 'page:analyze', requestId, draft, mode: 'jev', surface: 'page' },
+    { type: 'page:analyze', requestId, draft, mode: 'jev', surface: 'page', automatic: true },
+    { type: 'page:cancel', requestId },
+    { type: 'page:auto', enabled: true },
+    { type: 'page:auto', enabled: true, provider: 'jev' },
+    { type: 'page:preferences' },
+    { type: 'page:analysis-retry', requestId, attempt: 1 },
+    { type: 'page:employers', names: ['Acme Limited'], refresh: true },
+    { type: 'page:employers', names: ['Acme Limited'], jevKey: 'private-test-key' },
+    { ...local, sourceUrl: draft.sourceUrl },
+    { ...local, employer: draft.employer },
+    { ...local, apiKey: 'private-test-key' },
+    { type: 'page:sample-save', draft },
+    { type: 'page:sample-status', sourceUrl: draft.sourceUrl },
+    { type: 'export-library' },
+    { type: 'read-key' },
+  ])('rejects %j before any lookup or computation', (input) => {
+    const call = send(input);
+    expect(call.asynchronous).toBe(false);
+    expect(call.response).toHaveBeenCalledExactlyOnceWith({
+      ok: false,
+      error: t('errors.requestInvalid'),
+    });
+    expect(getTab).not.toHaveBeenCalled();
+    expect(mocks.localAnalysis).not.toHaveBeenCalled();
+    expect(mocks.employers).not.toHaveBeenCalled();
+    expect(createTab).not.toHaveBeenCalled();
+  });
+
+  it('rejects retired workspace analysis/cancel messages from trusted extension pages', () => {
+    for (const input of [
+      { type: 'analyze', requestId, draft, mode: 'jev' },
+      { type: 'cancel', requestId },
+      { type: 'page:local', title: sampleJob.title, body: sampleJob.body },
+    ]) {
+      const call = send(input, { ...settingsSender, tab: { id: 99 } });
+      expect(call.asynchronous).toBe(false);
+      expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+    }
+    expect(mocks.localAnalysis).not.toHaveBeenCalled();
   });
 });
 
@@ -410,9 +411,8 @@ describe('page language preference boundary', () => {
         expect(call.response).toHaveBeenCalledExactlyOnceWith({ ok: true, preference }),
       );
       expect(getTab).toHaveBeenCalledExactlyOnceWith(10);
-      expect(mocks.preferences).not.toHaveBeenCalled();
-      expect(mocks.listJobs).not.toHaveBeenCalled();
-      expect(mocks.analyze).not.toHaveBeenCalled();
+      expect(mocks.localAnalysis).not.toHaveBeenCalled();
+      expect(mocks.employers).not.toHaveBeenCalled();
     },
   );
 
@@ -453,34 +453,28 @@ describe('page language preference boundary', () => {
       expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false })),
     );
     expect(call.response.mock.calls[0]![0]).not.toHaveProperty('preference');
-    expect(mocks.preferences).not.toHaveBeenCalled();
   });
 });
 
 describe('removed resume functionality', () => {
   it.each(['page:resume-status', 'page:resume-match', 'resume:status', 'resume:match'])(
-    'rejects retired %s messages without dispatching analysis',
+    'rejects retired %s messages',
     (type) => {
       const input = type.endsWith('status')
         ? { type }
         : {
             type,
-            requestId: firstId,
-            draft: message.draft,
+            requestId,
+            draft: sampleJob,
             consent: true,
             ...(type.startsWith('page:') ? { surface: 'page' } : {}),
           };
-      const from: PageSender = type.startsWith('page:')
-        ? sender
-        : {
-            id: extensionId,
-            url: `chrome-extension://${extensionId}/sidepanel.html#settings`,
-          };
+      const from: PageSender = type.startsWith('page:') ? sender : settingsSender;
       const call = send(input, from);
       expect(call.asynchronous).toBe(false);
       expect(call.response).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
       expect(getTab).not.toHaveBeenCalled();
-      expect(mocks.analyze).not.toHaveBeenCalled();
+      expect(mocks.localAnalysis).not.toHaveBeenCalled();
     },
   );
 });

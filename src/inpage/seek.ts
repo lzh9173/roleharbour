@@ -5,15 +5,12 @@ import {
   isSeekPublicPage,
   parseSeekUrl as seekUrl,
 } from '../core/seek-url';
-export { canonicalSeekJobUrl, isSeekPublicPage } from '../core/seek-url';
 
 export interface SeekCard {
   element: HTMLElement;
-  jobId: string;
   url: string;
   title: string;
   employer: string;
-  location: string;
 }
 
 const INJECTED = '[data-seek-filter]';
@@ -69,10 +66,6 @@ const BLOCK_TAGS = new Set([
   'H6',
 ]);
 
-function jobId(url: string): string {
-  return url.slice(url.lastIndexOf('/') + 1);
-}
-
 type Visibility = (element: Element) => boolean;
 
 /** One cache per scan, so SPA visibility changes are reflected on the next call. */
@@ -106,7 +99,8 @@ function visibilityFor(document: Document): Visibility {
   return visible;
 }
 
-function renderedText(element: Element, visible: Visibility): string {
+/** List items keep a bullet so requirement lists stay recognisable after flattening. */
+function renderedText(element: Element, visible: Visibility, listMarkers = false): string {
   const read = (node: Node): string => {
     if (node.nodeType === 3) return node.textContent ?? '';
     if (node.nodeType !== 1) return '';
@@ -114,13 +108,17 @@ function renderedText(element: Element, visible: Visibility): string {
     if (IGNORED_TAGS.has(child.tagName) || !visible(child)) return '';
     if (child.tagName === 'BR') return '\n';
     const text = Array.from(child.childNodes).map(read).join('');
+    if (listMarkers && child.tagName === 'LI' && text.trim()) return `\n• ${text.trim()}\n`;
     return BLOCK_TAGS.has(child.tagName) ? `\n${text}\n` : text;
   };
-  return read(element)
+  const text = read(element)
+    // Soft hyphens are invisible on the page but split words for text matching.
+    .replace(/\u00ad/g, '')
     .replace(/[\t\f\v \u00a0]+/g, ' ')
     .replace(/ *\n */g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+    .replace(/\n{3,}/g, '\n\n');
+  // Consecutive list items read as one list, not separate paragraphs.
+  return (listMarkers ? text.replace(/\n\n(?=\u2022 )/g, '\n') : text).trim();
 }
 
 function oneLine(element: Element, visible: Visibility): string {
@@ -207,13 +205,7 @@ export function findSeekCards(document: Document): SeekCard[] {
       visible,
       belongs,
     );
-    const location = findText(
-      root,
-      ['[data-automation="jobLocation"]', '[data-testid="job-location"]'],
-      visible,
-      belongs,
-    );
-    cards.push({ element: root, jobId: jobId(link.url), url: link.url, title, employer, location });
+    cards.push({ element: root, url: link.url, title, employer });
   }
   return cards;
 }
@@ -270,8 +262,8 @@ function detailIdentities(
 
 function boundDetail(
   document: Document,
-  expectedJobId?: string,
-  visible: Visibility = visibilityFor(document),
+  expectedJobId: string | undefined,
+  visible: Visibility,
 ): { body: Element; root: Element; id: string } | null {
   if (!isSeekPublicPage(document.URL)) return null;
   const bodies = Array.from(document.querySelectorAll(DETAIL_BODIES)).filter(
@@ -310,18 +302,21 @@ function boundDetail(
   return { body: bodyElement, root, id };
 }
 
-/** The visible source description; injected controls must be mounted outside it. */
-export function findSeekDetailAnchor(document: Document): HTMLElement | null {
-  return (boundDetail(document)?.body as HTMLElement | undefined) ?? null;
-}
-
-/** Reads one visible, identity-bound public detail panel; never cards or hidden JSON. */
-export function readSeekDetail(document: Document, expectedJobId?: string): JobDraft | null {
+/** Reads one visible, identity-bound public detail panel; never cards or hidden JSON. Returns
+ * the draft and the source description it was read from (injected controls mount outside it),
+ * from one identity and visibility pass. */
+export function readSeekDetailAt(
+  document: Document,
+  expectedJobId?: string,
+  /** The description element and text from the previous pass, when nothing inside it changed. */
+  previous?: { anchor: Element; body: string },
+): { draft: JobDraft; anchor: HTMLElement } | null {
   const visible = visibilityFor(document);
   const bound = boundDetail(document, expectedJobId, visible);
   if (!bound) return null;
   const { body: bodyElement, root, id } = bound;
-  const body = renderedText(bodyElement, visible);
+  const body =
+    previous?.anchor === bodyElement ? previous.body : renderedText(bodyElement, visible, true);
   if (body.length < 40 || body.length > 24_000) return null;
   const belongs = (element: Element) => !element.closest(CARD_ROOTS);
   const title = findText(root, DETAIL_TITLES, visible, belongs);
@@ -352,8 +347,6 @@ export function readSeekDetail(document: Document, expectedJobId?: string): JobD
     location,
     body,
     sourceUrl: `https://nz.seek.com/job/${id}`,
-    salary: { min: null, max: null, currency: 'NZD', period: 'annual', hoursPerWeek: null },
-    retainBody: false,
   });
-  return result.success ? result.data : null;
+  return result.success ? { draft: result.data, anchor: bodyElement as HTMLElement } : null;
 }

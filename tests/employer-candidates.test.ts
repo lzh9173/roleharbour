@@ -2,6 +2,11 @@ import 'fake-indexeddb/auto';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkEmployers, importEmployerData, SNAPSHOT_ORIGIN } from '../src/employers';
+import { t } from '../src/i18n';
+
+/** The review note states how many candidates were found and how many are shown. */
+const candidateNote = (count: number, shown = Math.min(count, 5)) =>
+  t('errors.employerCandidates', { count, shown });
 
 const source = {
   format: 'json' as const,
@@ -96,7 +101,7 @@ describe('incomplete employer names', () => {
     await importEmployerData(JSON.stringify([row(legal, 0, trading)]), source);
     const result = (await checkEmployers([query]))[0]!;
     expect(result.status).toBe('ambiguous');
-    expect(result.candidateCount).toBe(1);
+    expect(result.note).toBe(candidateNote(1));
     expect(result.matches[0]).toMatchObject({ employerName: legal, candidateMatch: reason });
     expect(result.note).toContain('仅名称相近');
     expect(fetch).not.toHaveBeenCalled();
@@ -109,7 +114,7 @@ describe('incomplete employer names', () => {
     );
     const result = (await checkEmployers(['Acme']))[0]!;
     expect(result.status).toBe('ambiguous');
-    expect(result.candidateCount).toBe(8);
+    expect(result.note).toBe(candidateNote(8));
     expect(result.matches).toHaveLength(5);
     expect(result.note).toContain('找到 8');
     expect(result.note).toContain('显示 5');
@@ -121,7 +126,7 @@ describe('incomplete employer names', () => {
       source,
     );
     const result = (await checkEmployers(['Acme Cloud']))[0]!;
-    expect(result.candidateCount).toBe(1);
+    expect(result.note).toBe(candidateNote(1));
     expect(result.matches[0]?.candidateMatch).toBe('name_variant');
   });
 
@@ -139,7 +144,7 @@ describe('incomplete employer names', () => {
       expect(result.status).toBe('matched');
       expect(result.matches).toHaveLength(1);
       expect(result.matches[0]?.candidateMatch).toBeUndefined();
-      expect(result.candidateCount).toBeUndefined();
+      expect(result.note).toBe(t('errors.employerMatchNote'));
     }
   });
 
@@ -179,9 +184,9 @@ describe('incomplete employer names', () => {
 
   it('rebuilds suggestions after replacing the local snapshot', async () => {
     await importEmployerData(JSON.stringify([row('Acme Cloud Limited')]), source);
-    expect((await checkEmployers(['Acme']))[0]?.candidateCount).toBe(1);
+    expect((await checkEmployers(['Acme']))[0]?.note).toBe(candidateNote(1));
     await importEmployerData(JSON.stringify([row('Finch Works Limited')]), source);
     expect((await checkEmployers(['Acme']))[0]?.status).toBe('not_found');
-    expect((await checkEmployers(['Finch']))[0]?.candidateCount).toBe(1);
+    expect((await checkEmployers(['Finch']))[0]?.note).toBe(candidateNote(1));
   });
 });

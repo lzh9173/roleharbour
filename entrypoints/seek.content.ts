@@ -1,8 +1,9 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
+import { SEEK_MATCHES } from '../src/core/seek-url';
 import { mountSeekIntegration } from '../src/inpage/mount';
 
 export default defineContentScript({
-  matches: ['https://nz.seek.com/*', 'https://www.seek.co.nz/*'],
+  matches: SEEK_MATCHES,
   excludeMatches: [
     'https://nz.seek.com/profile/*',
     'https://nz.seek.com/my-activity/*',

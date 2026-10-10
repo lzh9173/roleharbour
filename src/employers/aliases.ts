@@ -1,7 +1,7 @@
 import { normalizeEmployerName } from './data';
 
 /** Public identity mappings only. Accreditation always comes from the local snapshot. */
-export const employerAliases = [
+const employerAliases = [
   {
     aliases: ['BNZ', 'B.N.Z.'],
     employerName: 'BANK OF NEW ZEALAND',
