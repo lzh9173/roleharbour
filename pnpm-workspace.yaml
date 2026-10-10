@@ -1,3 +1,13 @@
 # Remove once addons-linter updates its pinned dependency. See docs/DEVELOPMENT.md.
 overrides:
   addons-linter>image-size: 2.0.3
+  # Advisory floors for transitive development dependencies (pnpm audit --audit-level=high).
+  # Drop each once the parent package (web-ext's fx-runner, vite/postcss) ships the fix itself.
+  shell-quote: '>=1.11.0'
+  source-map-js: '>=1.2.2'
+auditConfig:
+  ignoreGhsas:
+    # node-forge RSA signature verification (GHSA-86w9-cpqp-85rv): no patched release exists on
+    # npm as of 2026-10-10 (latest 1.4.0). Reached only through web-ext's Android ADB client,
+    # which this project never runs. Remove once node-forge >= 1.4.1 is published and resolved.
+    - GHSA-86w9-cpqp-85rv
