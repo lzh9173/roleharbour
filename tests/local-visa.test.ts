@@ -205,13 +205,17 @@ describe('classifyVisa evidence and performance', () => {
       'We accept Visa and Mastercard. Applicants must already have the right to work in New Zealand.\n';
     const body = paragraph.repeat(Math.ceil(24_000 / paragraph.length)).slice(0, 24_000);
     classifyVisa(body);
-    const started = performance.now();
-    const runs = 20;
-    for (let index = 0; index < runs; index += 1) classifyVisa(body);
+    let fastest = Infinity;
+    for (let index = 0; index < 20; index += 1) {
+      const started = performance.now();
+      classifyVisa(body);
+      fastest = Math.min(fastest, performance.now() - started);
+    }
     // Worst case: every one of ~130 lines states a work-rights requirement (real adverts have
     // one or two). Measured ~5 ms on a laptop. The budget only has to catch super-linear
-    // backtracking (seconds), so it leaves room for slower CI machines and parallel workers.
-    expect((performance.now() - started) / runs).toBeLessThan(20);
+    // backtracking (seconds), so it leaves room for slower CI machines. The fastest run is
+    // compared because other test workers sharing the CPU slow some runs, never all of them.
+    expect(fastest).toBeLessThan(20);
   });
 
   it('stays fast on a single unpunctuated visa-heavy statement', () => {
