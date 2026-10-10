@@ -13,7 +13,6 @@ export interface Occupation {
   nzSkillLevel: number;
 }
 
-export const TAXONOMY_VERSION = 'anzsco-v1.3-full-2026-09-21.1';
 export const CATALOGUE_METADATA = catalogue.metadata;
 export const occupations: readonly Occupation[] = catalogue.occupations.map((record) => ({
   id: `anzsco-${record.code}`,

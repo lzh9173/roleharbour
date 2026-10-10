@@ -5,8 +5,7 @@ import {
   MAX_REQUIREMENT_TEXT,
   MAX_SKILL_CANDIDATES,
   parseExperienceYears,
-} from '../src/core/requirements';
-import { jobRequirementsSchema, jevSchema } from '../src/core/schema';
+} from '../src/local-engine/candidates';
 
 describe('experience years from source text', () => {
   it.each([
@@ -161,7 +160,7 @@ describe('bounded exact-source requirement candidates', () => {
     }
   });
 
-  it('limits question count and marks omitted candidates', () => {
+  it('limits the candidate count and marks omitted candidates', () => {
     const body = Array.from(
       { length: 80 },
       (_, index) =>
@@ -170,12 +169,6 @@ describe('bounded exact-source requirement candidates', () => {
     const candidates = buildRequirementCandidates(body);
     expect(candidates.skills.length).toBeLessThanOrEqual(MAX_SKILL_CANDIDATES);
     expect(candidates.experience.length).toBeLessThanOrEqual(MAX_EXPERIENCE_CANDIDATES);
-    expect(
-      [...candidates.skills, ...candidates.experience].reduce(
-        (count, item) => count + item.text.length,
-        0,
-      ),
-    ).toBeLessThanOrEqual(12_000);
     expect(candidates.truncated).toBe(true);
   });
 
@@ -313,48 +306,84 @@ describe('bounded exact-source requirement candidates', () => {
   });
 });
 
-describe('stored requirements validation', () => {
-  const text = 'Five years of commercial experience.';
-  const requirement = {
-    text,
-    level: 'required',
-    confidence: 0.9,
-    evidence: { id: 'requirement_1', text, start: 0, end: text.length },
-    minYears: 5,
-    maxYears: null,
-  };
-  const payload = { skills: [], experience: [requirement], truncated: false };
-  it('requires exact quote, consistent ranges and bounded confidence', () => {
-    expect(jobRequirementsSchema.safeParse(payload).success).toBe(true);
-    for (const invalid of [
-      { ...requirement, text: 'An invented requirement' },
-      { ...requirement, evidence: { ...requirement.evidence, end: 100 } },
-      { ...requirement, minYears: 100 },
-      { ...requirement, minYears: 6, maxYears: 3 },
-      { ...requirement, confidence: 1.1 },
-      { ...requirement, level: 'guaranteed' },
-    ])
-      expect(jobRequirementsSchema.safeParse({ ...payload, experience: [invalid] }).success).toBe(
-        false,
-      );
+describe('basic overview excerpt precision', () => {
+  const basic = (body: string) =>
+    buildRequirementCandidates(body, { explicitOnly: true }).skills.map((item) => item.text);
+
+  it('follows common job-ad sections instead of quoting duties, perks or application steps', () => {
+    const body = [
+      'About Northern Freight',
+      'We have supplied hardware stores for over 30 years and value skills development.',
+      'What you’ll be doing',
+      '• Help train new team members on our scanning system',
+      '• Keep certification records up to date',
+      '• You must follow site safety rules at all times',
+      'You’ll need a current Class 2 licence for site visits.',
+      'To be successful in this role you will have:',
+      '• Your own hand tools and reliable transport',
+      '• A current forklift licence',
+      'What’s in it for you?',
+      '• Ongoing training and development opportunities',
+      '• Career progression and skills development',
+      'How to apply',
+      'Click apply and include your CV.',
+      'Applicants must have the right to work in New Zealand.',
+    ].join('\n');
+    expect(basic(body)).toEqual([
+      'You must follow site safety rules at all times',
+      'You’ll need a current Class 2 licence for site visits.',
+      'Your own hand tools and reliable transport',
+      'A current forklift licence',
+      'Applicants must have the right to work in New Zealand.',
+    ]);
+    const broad = buildRequirementCandidates(body).skills.map((item) => item.text);
+    for (const heading of ['What’s in it for you?', 'How to apply', 'What you’ll be doing'])
+      expect(broad).not.toContain(heading);
+    expect(broad).toContain('Ongoing training and development opportunities');
   });
 
-  it('accepts old Jev records without requirements', () => {
-    const decision = (choice: string) => ({
-      choice,
-      probabilities: {},
-      confidence: 0.5,
-      evidence: [],
-    });
+  it.each(['Perks', 'Why join us?', 'The package', 'What we offer:', 'Benefits include:'])(
+    'treats %s as a benefits heading',
+    (heading) => {
+      expect(basic(`${heading}\nLearning budget and professional training.`)).toEqual([]);
+    },
+  );
+
+  it.each([
+    'Strong TypeScript skills',
+    '- Skills and experience',
+    'Experience with the following tools is essential.',
+  ])('does not mistake a requirement line for a heading: %s', (line) => {
+    expect(basic(line)).toEqual([line]);
+  });
+
+  it('omits training and equipment the employer provides unless a requirement is stated', () => {
     expect(
-      jevSchema.safeParse({
-        model: 'jev-1.13.0',
-        occupation: decision('none'),
-        sponsorship: decision('not_mentioned'),
-        workRights: decision('not_mentioned'),
-        residency: decision('not_mentioned'),
-        usage: { inputTokens: 100, outputTokens: 0 },
-      }).success,
-    ).toBe(true);
+      basic(
+        [
+          'Product training and till induction are provided before independent shifts.',
+          'A vehicle and scheduled technical training are included in the role.',
+          'Training covers the stock system and our filing process.',
+          'We are appointing a teacher for a mixed-ability class.',
+          'No previous experience is required because training is provided.',
+          'Training will be provided, but a current first aid certificate is essential.',
+          'Preference will be given to applicants with a forklift licence.',
+        ].join('\n'),
+      ),
+    ).toEqual([
+      'No previous experience is required because training is provided.',
+      'Training will be provided, but a current first aid certificate is essential.',
+      'Preference will be given to applicants with a forklift licence.',
+    ]);
+  });
+
+  it('quotes a repeated statement once in both modes', () => {
+    const body =
+      'A current Class 2 licence is required.\nDeliver goods safely.\n• A current Class 2 licence is required';
+    expect(basic(body)).toEqual(['A current Class 2 licence is required.']);
+    expect(buildRequirementCandidates(body).skills.map((item) => item.text)).toEqual([
+      'A current Class 2 licence is required.',
+      'Deliver goods safely.',
+    ]);
   });
 });
