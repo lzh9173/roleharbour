@@ -16,7 +16,7 @@
 
 - Video: 1920 × 1080, 60 fps, 840 frames, 14.0 s, H.264 High yuv420p CRF 18 `+faststart`, AAC 192 kbit/s, under 10 MB.
 - Palette: navy `#051a49`, amber `#F5B841`, sky `#CFE8FF`, background `#F7F8FA`, text `#2e3849`.
-- No SEEK logo, colours or URL. SEEK is named only in the end-card line "Chrome extension for SEEK NZ".
+- No SEEK logo, URL or signature pink; navy and text are the extension's own SEEK-aligned UI colours. SEEK is named only in the end-card line "Chrome extension for SEEK NZ".
 - End-card fine print: "Illustrative job ad and employer results. Independent of SEEK and INZ."
 - UI values come only from `promo/data/reading.json` and the English strings in `src/i18n/page.ts`.
 - No new npm dependencies. No git commits unless the user asks.

@@ -14,7 +14,7 @@ Haru the mascot, the extension icons' source art, the logo, the README banner an
 | Background | `#F7F8FA` | Banner and video background            |
 | Text       | `#2e3849` | Body copy                              |
 
-These are not SEEK's colours. Type is Inter (SIL Open Font License), loaded from Google Fonts when the banner, lockup and video are rendered.
+Navy and text are the extension's own UI colours, which follow SEEK's palette so the in-page panel sits naturally on SEEK; amber and sky are RoleHarbour's own. No SEEK logo, URL or signature pink is used. Type is Inter (SIL Open Font License), loaded from Google Fonts when the banner, lockup and video are rendered.
 
 ## Files
 

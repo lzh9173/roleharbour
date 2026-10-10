@@ -44,7 +44,7 @@ Assets are cut out by flood-filling the white background from the corners, erodi
 
 ## 2. Logo system
 
-Palette: navy `#051a49`, amber `#F5B841`, sky `#CFE8FF`, light background `#F7F8FA`, text `#2e3849`. These colours are not SEEK's.
+Palette: navy `#051a49`, amber `#F5B841`, sky `#CFE8FF`, light background `#F7F8FA`, text `#2e3849`. Navy and text are the extension's UI colours, which follow SEEK's palette so the in-page panel sits naturally on SEEK; amber and sky are RoleHarbour's own.
 
 - **Extension icon.** Haru's smiling face on a sky-blue rounded square (corner radius 23% of the side, matching the current icon). `scripts/icons.ts` composes the tile and `brand/haru/face-smile.png` with sharp for each size, replacing the hand-written SVG. The 16 and 32 px icons use a tighter crop (eyes, fringe and beret) so the face does not shrink to a dot. Output stays at `public/icon/{16,32,48,128}.png`, so the manifest does not change.
 - **Lighthouse sticker.** `brand/logo/crest.svg`, chosen on 2026-10-11 over a shield, line, seal, highlighter and academy-crest style: a round anime-style sticker with a white border and soft shadow, a navy-outlined sky disc, a white lighthouse with coral bands and roof, an amber lamp, pale-amber beams, a two-tone blue sea with a white wave crest and three amber sparkles. Navy outlines keep it legible at 20 px on light and dark backgrounds.
