@@ -8,7 +8,14 @@ import type { EmployerCheck } from '../employers';
 import { isPageRuntimeAvailable, sendPageMessage } from '../core/page-runtime';
 import { EmployerDetails, EmployerTag } from './EmployerBadge';
 import { PrepChecklist, experienceSummary } from './PrepChecklist';
-import { evidenceToggleStyle, focusRing, hint, pillStyle, quietButtonStyle } from './styles';
+import {
+  evidencePillToggleStyle,
+  focusRing,
+  hint,
+  pillStyle,
+  quietButtonStyle,
+  quietLinkButtonStyle,
+} from './styles';
 import { isUserAction, openSettings } from './actions';
 
 /** Collapsed jobs survive SEEK re-rendering the detail pane (which remounts the panel). */
@@ -70,7 +77,7 @@ function VisaFact<C extends string>({
     <Fact label={label}>
       <button
         type="button"
-        className={`${evidenceToggleStyle} ${toneStyle[tone]}`}
+        className={`${evidencePillToggleStyle} ${toneStyle[tone]}`}
         title={quote}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -250,7 +257,7 @@ export function InlinePanel({
                 {readError}
                 <button
                   type="button"
-                  className={`${quietButtonStyle} px-2 text-rh-link`}
+                  className={`${quietLinkButtonStyle} px-2`}
                   onClick={() => setAttempt((value) => value + 1)}
                 >
                   {t('page.retry')}

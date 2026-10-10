@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/ui/App';
 import { t } from '../src/i18n';
 import { applyLanguagePreference, loadLanguagePreference } from '../src/i18n/preference';
+import { classConflicts } from './class-conflicts';
 
 vi.mock('../src/ui/EmployerSettings', () => ({
   EmployerSettings: () =>
@@ -89,6 +90,11 @@ describe('on-device settings page', () => {
     ]);
     expect(document.title).toBe('设置');
     expect(document.documentElement.lang).toBe('zh-CN');
+  });
+
+  it('styles every control without competing utilities', async () => {
+    await mount();
+    expect(classConflicts(container)).toEqual([]);
   });
 
   it('has no API key, consent, automatic-analysis or job backup controls', async () => {
