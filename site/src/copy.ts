@@ -70,17 +70,6 @@ const en = {
     title: 'Install RoleHarbour',
     body: 'Add RoleHarbour from the Chrome Web Store, then open any job on SEEK New Zealand. The panel appears on the job page, with nothing to set up.',
     store: 'Open in Chrome Web Store',
-    manualTitle: 'Or install it by hand from GitHub Releases',
-    steps: [
-      'Download the Chrome ZIP from GitHub Releases and extract it.',
-      'Open chrome://extensions and turn on Developer mode.',
-      'Choose Load unpacked and select the extracted folder, the one containing manifest.json.',
-    ],
-    download: 'Download from GitHub Releases',
-    notes: [
-      'The store version and a hand-installed copy are separate extensions with separate settings, so keep just one.',
-      'To upgrade a hand-installed copy, replace the files in the folder Chrome already loads and reload the extension. Uninstalling deletes its data.',
-    ],
   },
   limits: {
     title: 'Good to know',
@@ -94,7 +83,6 @@ const en = {
   footer: {
     tagline: 'Job ads, read for you.',
     store: 'Chrome Web Store',
-    source: 'Source on GitHub',
     privacy: 'Privacy notice',
     changelog: 'Changelog',
     haru: 'Haru is AI-generated artwork.',
@@ -171,17 +159,6 @@ const zh: Copy = {
     title: '安装 RoleHarbour',
     body: '从 Chrome 网上应用店添加 RoleHarbour，然后打开任意 SEEK 新西兰职位，面板就会出现在职位页面上，无需任何设置。',
     store: '前往 Chrome 网上应用店',
-    manualTitle: '也可以从 GitHub Releases 手动安装',
-    steps: [
-      '从 GitHub Releases 下载 Chrome ZIP 并解压。',
-      '打开 chrome://extensions，开启“开发者模式”。',
-      '点击“加载已解压的扩展程序”，选择解压后包含 manifest.json 的文件夹。',
-    ],
-    download: '前往 GitHub Releases 下载',
-    notes: [
-      '应用店版本和手动安装的版本是两个独立的扩展，设置互不共享，只保留其中一个即可。',
-      '升级手动安装的版本时，替换 Chrome 正在加载的文件夹中的文件，再重新加载扩展。卸载会删除扩展数据。',
-    ],
   },
   limits: {
     title: '使用须知',
@@ -195,9 +172,8 @@ const zh: Copy = {
   footer: {
     tagline: '招聘广告，替你读完。',
     store: 'Chrome 网上应用店',
-    source: 'GitHub 源码',
-    privacy: '隐私说明',
-    changelog: '更新日志',
+    privacy: '隐私说明（英文）',
+    changelog: '更新日志（英文）',
     haru: 'Haru 形象由 AI 生成。',
   },
 };

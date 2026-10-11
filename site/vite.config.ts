@@ -1,16 +1,17 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
+import { docPages } from './docs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const repository = fileURLToPath(new URL('..', import.meta.url));
 
-// The promotional site: one static page, built with relative URLs so it works from any
-// path, including a GitHub Pages project path such as /roleharbour/.
+// The promotional site: the home page plus the privacy notice and changelog, built with
+// relative URLs so it works from any path, including its GitHub Pages path /roleharbour/.
 export default defineConfig({
   root,
   base: './',
-  plugins: [tailwindcss()],
+  plugins: [tailwindcss(), docPages(repository)],
   oxc: { jsx: { runtime: 'automatic' } },
   // Brand art and the demo's job ad are imported from brand/ and promo/, outside site/.
   server: { fs: { allow: [repository] } },
@@ -20,6 +21,7 @@ export default defineConfig({
     // Keep the promo video and images as files rather than inlined data URLs.
     assetsInlineLimit: 0,
     rolldownOptions: {
+      input: ['index.html', 'privacy.html', 'changelog.html'].map((page) => root + page),
       // lucide-react marks its modules "use client", which means nothing outside a server
       // components setup.
       onwarn(warning, warn) {

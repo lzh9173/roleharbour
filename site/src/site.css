@@ -86,3 +86,110 @@
     animation: none;
   }
 }
+
+/* The privacy notice and changelog pages: Markdown from the repository, rendered at build time. */
+.doc-header {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.doc-header a {
+  color: var(--color-rh-text);
+  text-decoration: none;
+  border-radius: 4px;
+}
+.doc-header a:hover {
+  color: var(--color-rh-navy);
+}
+.doc-header .doc-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-rh-navy);
+}
+.doc-header a:focus-visible,
+.doc a:focus-visible {
+  outline: 3px solid var(--color-rh-focus);
+  outline-offset: 3px;
+}
+.doc {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+  overflow-wrap: break-word;
+}
+.doc h1 {
+  margin: 0 0 16px;
+  font-size: clamp(36px, 6vw, 52px);
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  color: var(--color-rh-navy);
+}
+.doc h2 {
+  margin: 48px 0 12px;
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-rh-navy);
+}
+.doc p,
+.doc ul,
+.doc table {
+  margin: 0 0 16px;
+}
+.doc ul {
+  list-style: disc;
+  padding-left: 22px;
+}
+.doc li + li {
+  margin-top: 8px;
+}
+.doc li::marker {
+  color: var(--color-rh-muted);
+}
+.doc a {
+  color: var(--color-rh-link);
+}
+.doc code {
+  font: 0.86em var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  background: #e9edf2;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+/* Tables scroll on their own on a phone instead of widening the page. */
+.doc table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  font-size: 15px;
+}
+.doc th,
+.doc td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-rh-border);
+  text-align: left;
+  vertical-align: top;
+}
+.doc th {
+  color: var(--color-rh-navy);
+  font-weight: 700;
+}
+@media (min-width: 640px) {
+  .doc-header {
+    padding: 12px 32px;
+  }
+  .doc {
+    padding: 64px 32px 112px;
+  }
+}
