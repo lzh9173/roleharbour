@@ -1,6 +1,6 @@
 # Privacy notice
 
-Version 0.22.0 · updated 2026-10-10 for on-device analysis
+Version 0.22.1 · updated 2026-10-10 for on-device analysis
 
 RoleHarbour runs entirely on your device. Job content is read, analysed and displayed locally and is never sent to any server. There is no RoleHarbour account, hosted server, analytics, AI service or credential.
 

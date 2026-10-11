@@ -1,8 +1,8 @@
-RoleHarbour 0.22.0
+RoleHarbour 0.22.1
 Chrome 116 or later
 
 NEW INSTALLATION
-1. Extract roleharbour-0.22.0-chrome.zip.
+1. Extract roleharbour-0.22.1-chrome.zip.
 2. Open chrome://extensions and enable Developer mode.
 3. Choose Load unpacked and select the directory containing manifest.json.
 4. Open a complete public SEEK New Zealand job. The panel shows a preparation

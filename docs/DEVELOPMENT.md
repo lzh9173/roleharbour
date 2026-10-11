@@ -98,7 +98,7 @@ For this release:
 ```sh
 rsync -a --delete .output/chrome-mv3/ release/chrome-extension/
 rsync -a --delete .output/chrome-mv3/ release/roleharbour-0.11.0-chrome/
-unzip -t .output/roleharbour-0.22.0-chrome.zip
+unzip -t .output/roleharbour-0.22.1-chrome.zip
 ```
 
 The ZIP and `SHA256SUMS` are published as GitHub Release assets by `release:prepare` and the release workflow; they are not committed (see `.gitignore`).
