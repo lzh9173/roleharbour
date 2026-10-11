@@ -8,6 +8,8 @@ A Chrome extension for researching jobs on SEEK New Zealand. Everything runs on 
 
 **Version 0.22.0 · Chrome 116+ · Manifest V3**
 
+Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe), or load a build from [GitHub Releases](https://github.com/lzh9173/roleharbour/releases/latest).
+
 [![Promo video: RoleHarbour in 26 seconds](brand/promo/poster.png)](brand/promo/roleharbour-promo.mp4)
 
 A 26-second tour (1080p, with sound), presented by Haru, RoleHarbour's mascot. The job ad and employer results in it are illustrative. Logo, mascot and video sources are in [`brand/`](brand/README.md).
@@ -29,14 +31,24 @@ Supported interfaces are English, Simplified Chinese, Traditional Chinese, Japan
 
 ## Install and use
 
-### New installation
+### From the Chrome Web Store
+
+1. Open [RoleHarbour · NZ Job Companion](https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe) on the Chrome Web Store and choose **Add to Chrome**. Chrome keeps it up to date.
+2. Open a public job on `https://nz.seek.com` or `https://www.seek.co.nz`. The panel needs no setup. Employer matching becomes available after the initial list download.
+3. Open the extension's settings to choose a language or manage the employer list.
+
+New versions reach the store after Google's review, so the store can be briefly behind GitHub Releases.
+
+### From GitHub Releases
 
 1. Download the Chrome ZIP from [GitHub Releases](https://github.com/lzh9173/roleharbour/releases/latest), then extract it. Each release includes installation notes and SHA-256 checksums. Access to this private repository requires a GitHub account with permission.
 2. Open `chrome://extensions`, enable **Developer mode**, then choose **Load unpacked** and select the extracted directory containing `manifest.json`.
 3. Open a public job on `https://nz.seek.com` or `https://www.seek.co.nz`. The panel needs no setup. Employer matching becomes available after the initial list download, or after importing a valid employer backup.
 4. Open the extension's settings to choose a language or manage the employer list.
 
-### Upgrade an existing installation
+The store installation and an unpacked one are separate extensions with separate data and settings, so keep only one.
+
+### Upgrade an unpacked installation
 
 Keep the directory Chrome already loads: `release/chrome-extension` or, for older installations, `release/roleharbour-0.11.0-chrome`. Both contain the current build; the older directory name is retained to preserve extension identity. Reload the extension in Chrome, then refresh open SEEK tabs. Do not uninstall to upgrade: uninstalling deletes extension data.
 
@@ -161,7 +173,7 @@ Tests use synthetic fixtures, mocked Chrome/network boundaries and temporary Ind
 
 Pushes and pull requests to `main` run formatting, type checking, regression tests, release-validation tests, a dependency audit and a production build. Verified packages are retained as workflow artifacts for 14 days. CI needs no secrets.
 
-Pushing a `vMAJOR.MINOR.PATCH` tag reruns those checks and publishes a GitHub Release with `gh`: the Chrome ZIP, `INSTALL.txt` and `SHA256SUMS`. Publication requires matching tag/package/manifest versions, current changelog notes and byte-for-byte agreement between the ZIP and fresh build. It does not publish to the Chrome Web Store. See [release procedures](docs/DEVELOPMENT.md#github-actions-and-releases) and the [changelog](CHANGELOG.md).
+Pushing a `vMAJOR.MINOR.PATCH` tag reruns those checks and publishes a GitHub Release with `gh`: the Chrome ZIP, `INSTALL.txt` and `SHA256SUMS`. Publication requires matching tag/package/manifest versions, current changelog notes and byte-for-byte agreement between the ZIP and fresh build. It does not publish to the Chrome Web Store; store updates are uploaded separately and go through Google's review. See [release procedures](docs/DEVELOPMENT.md#github-actions-and-releases) and the [changelog](CHANGELOG.md).
 
 ## Limits and data handling
 
@@ -173,4 +185,4 @@ Pushing a `vMAJOR.MINOR.PATCH` tag reruns those checks and publishes a GitHub Re
 
 Read the [privacy notice](docs/PRIVACY.md), [test-data rules](tests/fixtures/README.md), [catalogue attribution](data/occupations/README.md) and `public/occupation-sources.txt`.
 
-RoleHarbour is independent of SEEK and INZ. It is distributed as a local installation package and has not been published to the Chrome Web Store.
+RoleHarbour is independent of SEEK and INZ. It is published on the [Chrome Web Store](https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe) and as unpacked packages on GitHub Releases.
