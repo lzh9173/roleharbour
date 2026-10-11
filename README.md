@@ -10,10 +10,6 @@ A Chrome extension for researching jobs on SEEK New Zealand. Everything runs on 
 
 Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe), or load a build from [GitHub Releases](https://github.com/lzh9173/roleharbour/releases/latest). The public site is [lzh9173.github.io/roleharbour](https://lzh9173.github.io/roleharbour/).
 
-[![Promo video: RoleHarbour in 26 seconds](brand/promo/poster.png)](brand/promo/roleharbour-promo.mp4)
-
-A 26-second tour (1080p, with sound), presented by Haru, RoleHarbour's mascot. The job ad and employer results in it are illustrative. Logo, mascot and video sources are in [`brand/`](brand/README.md).
-
 ## What it does
 
 | Feature                   | What you see                                                                                                                                                                                                  |
