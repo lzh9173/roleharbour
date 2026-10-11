@@ -8,7 +8,7 @@ A Chrome extension for researching jobs on SEEK New Zealand. Everything runs on 
 
 **Version 0.22.1 · Chrome 116+ · Manifest V3**
 
-Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe), or load a build from [GitHub Releases](https://github.com/lzh9173/roleharbour/releases/latest).
+Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe), or load a build from [GitHub Releases](https://github.com/lzh9173/roleharbour/releases/latest). The public site is [lzh9173.github.io/roleharbour](https://lzh9173.github.io/roleharbour/).
 
 [![Promo video: RoleHarbour in 26 seconds](brand/promo/poster.png)](brand/promo/roleharbour-promo.mp4)
 
@@ -159,7 +159,7 @@ node promo/render.mjs                              # Promo video and poster into
 
 See [`brand/README.md`](brand/README.md) and [`promo/README.md`](promo/README.md).
 
-The promotional page in `site/` is a single static React page in English and Simplified Chinese. Its demo renders the extension's own panel components with the captured reading in `promo/data/`, and hovering a result highlights its sentence in the ad. It is built with relative URLs, so `output/site/` can be served from any path, including a GitHub Pages project site; it is not deployed yet.
+The promotional site in `site/` is a static React page in English and Simplified Chinese, published at <https://lzh9173.github.io/roleharbour/>. Its demo renders the extension's own panel components with the captured reading in `promo/data/`, and hovering a result highlights its sentence in the ad. This repository is private, so the site never links to GitHub: it installs through the Chrome Web Store and publishes its own `privacy.html` and `changelog.html`, rendered from `docs/PRIVACY.md` and `CHANGELOG.md` at build time; links in those two files must be absolute and must not point into the repository. It is built with relative URLs into `output/site/`, and `.github/workflows/pages.yml` deploys it on every push to `main`.
 
 ```sh
 pnpm site:dev                         # Development server
