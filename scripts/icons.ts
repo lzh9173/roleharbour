@@ -37,19 +37,29 @@ async function art(small: boolean) {
     .toBuffer();
 }
 
-await mkdir('public/icon', { recursive: true });
-for (const size of [16, 32, 48, 128]) {
-  const tile = await sharp({
-    create: { width: canvas, height: canvas, channels: 4, background: sky },
-  })
+async function tile(small: boolean) {
+  return sharp({ create: { width: canvas, height: canvas, channels: 4, background: sky } })
     .composite([
-      { input: await art(size <= 32) },
+      { input: await art(small) },
       { input: roundedMask(canvas, canvas * 0.234), blend: 'dest-in' },
     ])
     .png()
     .toBuffer();
-  await sharp(tile)
+}
+
+await mkdir('public/icon', { recursive: true });
+for (const size of [16, 32, 48, 128]) {
+  await sharp(await tile(size <= 32))
     .resize(size, size, { kernel: 'lanczos3' })
     .png()
     .toFile(`public/icon/${size}.png`);
 }
+
+// The Chrome Web Store icon: the tile at 96 px inside 16 px of transparent padding, as the
+// store's image guidelines ask. It is uploaded to the listing, not packaged.
+await mkdir('brand/store', { recursive: true });
+await sharp(await tile(false))
+  .resize(96, 96, { kernel: 'lanczos3' })
+  .extend({ top: 16, bottom: 16, left: 16, right: 16, background: '#0000' })
+  .png()
+  .toFile('brand/store/icon-128.png');

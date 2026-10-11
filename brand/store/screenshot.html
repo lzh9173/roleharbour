@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>RoleHarbour store screenshot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=block"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+      }
+      .shot {
+        position: relative;
+        width: 1280px;
+        height: 800px;
+        overflow: hidden;
+        background: #f7f8fa;
+        font-family: Inter, sans-serif;
+        color: #051a49;
+      }
+      .brand {
+        position: absolute;
+        left: 64px;
+        top: 34px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .brand img {
+        width: 30px;
+        height: 30px;
+      }
+      h1 {
+        position: absolute;
+        left: 62px;
+        top: 80px;
+        width: 960px;
+        margin: 0;
+        font-size: 44px;
+        font-weight: 900;
+        line-height: 1.05;
+        letter-spacing: -0.035em;
+      }
+      .mark {
+        background: linear-gradient(transparent 55%, #f5b841 55%, #f5b841 92%, transparent 92%);
+        padding: 0 4px;
+        margin: 0 -4px;
+      }
+      .sub {
+        position: absolute;
+        left: 64px;
+        top: 140px;
+        width: 960px;
+        margin: 0;
+        font-size: 19px;
+        line-height: 1.4;
+        color: #5a6881;
+      }
+      .haru {
+        position: absolute;
+        right: 78px;
+        top: 26px;
+        height: 200px;
+      }
+      .frame {
+        position: absolute;
+        left: 64px;
+        top: 196px;
+        width: 1152px;
+        height: 641px;
+        overflow: hidden;
+        border: 1px solid #e4e8ed;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 18px 50px #051a491f;
+      }
+      .frame iframe {
+        width: 1280px;
+        height: 712px;
+        border: 0;
+        transform: scale(0.9);
+        transform-origin: 0 0;
+      }
+      .fade {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 64px;
+        background: linear-gradient(#f7f8fa00, #f7f8fa 70%);
+      }
+      .fine {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 12px;
+        margin: 0;
+        text-align: center;
+        font-size: 13px;
+        color: #8995a9;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shot" id="shot">
+      <div class="brand"><img src="../logo/crest.svg" alt="" />RoleHarbour</div>
+      <h1 id="title"></h1>
+      <p class="sub" id="sub"></p>
+      <img class="haru" id="haru" alt="" />
+      <div class="frame"><iframe id="site" title="RoleHarbour demo"></iframe></div>
+      <div class="fade"></div>
+      <p class="fine">Illustrative job ad and employer result · Independent of SEEK and INZ</p>
+    </div>
+    <script src="/promo/lib/fonts.js"></script>
+    <script src="screenshot.js"></script>
+  </body>
+</html>

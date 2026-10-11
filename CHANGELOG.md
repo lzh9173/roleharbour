@@ -7,6 +7,7 @@
 - Add the brand kit (Haru, the lighthouse sticker logo, the lockup and README banner) and a 26-second promo video rendered from source, with an illustrative job ad and employer results.
 - Add a promotional web page in `site/`, in English and Simplified Chinese, with a demo built from the extension's own panel components: pointing at a result highlights its sentence in an illustrative job ad. It links to the Chrome Web Store listing and to GitHub Releases. CI builds it; it is not deployed yet.
 - Point the README and privacy notice to the Chrome Web Store listing, which they described as unpublished, and add store installation steps.
+- Add Chrome Web Store assets in `brand/store/`, rendered from source: a padded store icon, four screenshots of the demo panel with captions, and the small and marquee promo tiles.
 
 ## 0.22.0
 

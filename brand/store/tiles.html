@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>RoleHarbour store tiles</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=block"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        display: grid;
+        gap: 40px;
+        justify-items: start;
+      }
+      .tile {
+        position: relative;
+        overflow: hidden;
+        background: #051a49;
+        font-family: Inter, sans-serif;
+        color: #fff;
+      }
+      .halo {
+        position: absolute;
+        border-radius: 50%;
+        background: #cfe8ff;
+      }
+      .haru {
+        position: absolute;
+        bottom: 0;
+      }
+      .brand {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      h1 {
+        position: absolute;
+        margin: 0;
+        font-weight: 900;
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+      }
+      h1 .accent {
+        color: #f5b841;
+      }
+      .sub {
+        position: absolute;
+        margin: 0;
+        color: #cfe8ff;
+      }
+
+      /* Small promo tile, 440 × 280 */
+      #small {
+        width: 440px;
+        height: 280px;
+      }
+      #small .halo {
+        left: 252px;
+        top: 52px;
+        width: 250px;
+        height: 250px;
+      }
+      #small .haru {
+        left: 294px;
+        bottom: -10px;
+        height: 236px;
+      }
+      #small .brand {
+        left: 26px;
+        top: 28px;
+        gap: 9px;
+        font-size: 21px;
+      }
+      #small .brand img {
+        width: 32px;
+        height: 32px;
+      }
+      #small h1 {
+        left: 24px;
+        top: 96px;
+        font-size: 38px;
+      }
+      #small .sub {
+        left: 26px;
+        top: 196px;
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      /* Marquee promo tile, 1400 × 560 */
+      #marquee {
+        width: 1400px;
+        height: 560px;
+      }
+      #marquee .halo {
+        left: 846px;
+        top: 34px;
+        width: 520px;
+        height: 520px;
+      }
+      #marquee .haru {
+        left: 1000px;
+        height: 540px;
+      }
+      #marquee .brand {
+        left: 96px;
+        top: 78px;
+        gap: 14px;
+        font-size: 36px;
+      }
+      #marquee .brand img {
+        width: 50px;
+        height: 50px;
+      }
+      #marquee h1 {
+        left: 92px;
+        top: 162px;
+        font-size: 86px;
+      }
+      #marquee .sub {
+        left: 96px;
+        top: 356px;
+        font-size: 25px;
+      }
+      .pills {
+        position: absolute;
+        left: 96px;
+        top: 414px;
+        width: 700px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .pills span {
+        border: 1.5px solid #ffffff38;
+        background: #ffffff12;
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-size: 17px;
+        font-weight: 600;
+      }
+      .fine {
+        position: absolute;
+        left: 96px;
+        bottom: 30px;
+        margin: 0;
+        font-size: 14px;
+        color: #8fa3c7;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="tile" id="small">
+      <div class="halo"></div>
+      <img class="haru" src="../haru/face-smile.png" alt="" />
+      <div class="brand"><img src="../logo/crest.svg" alt="" />RoleHarbour</div>
+      <h1>Job ads,<br /><span class="accent">read for you.</span></h1>
+      <p class="sub">For SEEK New Zealand</p>
+    </div>
+
+    <div class="tile" id="marquee">
+      <div class="halo"></div>
+      <img class="haru" src="../haru/full-front.png" alt="" />
+      <div class="brand"><img src="../logo/crest.svg" alt="" />RoleHarbour</div>
+      <h1>Job ads,<br /><span class="accent">read for you.</span></h1>
+      <p class="sub">On-device job research for SEEK New Zealand.</p>
+      <div class="pills">
+        <span>Preparation checklist</span><span>Visa wording, with sources</span
+        ><span>Accredited employer list</span><span>No uploads</span>
+      </div>
+      <p class="fine">Chrome extension · Independent of SEEK and INZ.</p>
+    </div>
+    <script src="/promo/lib/fonts.js"></script>
+  </body>
+</html>
