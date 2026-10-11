@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../site/src/App';
 import { copy } from '../site/src/copy';
 import { adBlocks, job, reading, sourceOf, splitBlock } from '../site/src/demo-data';
+import { renderDoc } from '../site/docs';
 
 const sources = [
   ...[reading.visa.sponsorship, reading.visa.workRights, reading.visa.residency].flatMap(
@@ -106,5 +108,34 @@ describe('site copy', () => {
     expect(chinese).toContain(copy.zh.hero.titleMarked);
     expect(chinese).toContain('提及支持');
     expect(chinese).not.toContain('Support mentioned');
+  });
+});
+
+describe('site pages', () => {
+  const hrefs = (html: string) =>
+    [...html.matchAll(/<a [^>]*href="([^"]+)"/g)].map((match) => match[1]!);
+
+  // The repository is private: visitors cannot open anything on GitHub.
+  it('links to its own privacy notice and changelog, not to GitHub', () => {
+    const links = hrefs(renderToStaticMarkup(createElement(App)));
+    expect(links).toContain('./privacy.html');
+    expect(links).toContain('./changelog.html');
+    for (const link of links) expect(link).not.toContain('github.com');
+  });
+
+  it('renders the privacy notice and changelog from the repository', () => {
+    const privacy = renderDoc('docs/PRIVACY.md');
+    expect(privacy).toContain('<h1>Privacy notice</h1>');
+    expect(privacy).toContain('<table>');
+    const { version } = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };
+    expect(renderDoc('CHANGELOG.md')).toContain(`<h2>${version}</h2>`);
+  });
+
+  it('publishes documents whose links all work outside the repository', () => {
+    for (const path of ['docs/PRIVACY.md', 'CHANGELOG.md'])
+      for (const link of hrefs(renderDoc(path))) {
+        expect(link, path).toMatch(/^https:\/\//);
+        expect(link, path).not.toContain('github.com');
+      }
   });
 });

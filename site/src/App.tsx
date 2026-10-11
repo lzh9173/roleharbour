@@ -10,13 +10,12 @@ import { copy, type Lang } from './copy';
 import { Demo } from './Demo';
 import { Features } from './Features';
 
-const repository = 'https://github.com/lzh9173/roleharbour';
+// The repository is private, so nothing links to GitHub: installs go through the store.
 const links = {
   store:
     'https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe',
-  release: `${repository}/releases/latest`,
-  privacy: `${repository}/blob/main/docs/PRIVACY.md`,
-  changelog: `${repository}/blob/main/CHANGELOG.md`,
+  privacy: './privacy.html',
+  changelog: './changelog.html',
 };
 const LANG_KEY = 'roleharbour-site-lang';
 const focus =
@@ -136,12 +135,6 @@ export function App() {
               ))}
             </ul>
             <LanguageSwitch lang={lang} label={text.languageLabel} onChange={choose} />
-            <a
-              href={repository}
-              className={`hidden rounded-[4px] text-[15px] font-medium text-rh-text no-underline hover:text-rh-navy sm:inline ${focus}`}
-            >
-              GitHub
-            </a>
           </nav>
         </div>
       </header>
@@ -230,39 +223,13 @@ export function App() {
         </section>
 
         <section id="install" className="border-t border-rh-border bg-white">
-          <div className="mx-auto grid max-w-[1180px] gap-12 px-5 py-20 sm:px-8 sm:py-28 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-            <div>
-              <h2 className={`${sectionTitle} text-rh-navy`}>{text.install.title}</h2>
-              <p className="mt-5 mb-0 text-[18px]">{text.install.body}</p>
-              <a href={links.store} className={`${primaryButton} mt-8`}>
-                <Download size={18} aria-hidden="true" />
-                {text.install.store}
-              </a>
-            </div>
-            <div>
-              <h3 className="m-0 mb-6 text-[20px] leading-snug font-bold text-rh-navy">
-                {text.install.manualTitle}
-              </h3>
-              <ol className="m-0 grid list-none gap-6 p-0">
-                {text.install.steps.map((step, index) => (
-                  <li key={step} className="flex items-start gap-4 text-[17px]">
-                    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-rh-navy text-[15px] font-extrabold text-rh-navy">
-                      {index + 1}
-                    </span>
-                    <span className="pt-[5px]">{step}</span>
-                  </li>
-                ))}
-              </ol>
-              <a href={links.release} className={`${secondaryButton} mt-8`}>
-                <Download size={18} aria-hidden="true" />
-                {text.install.download}
-              </a>
-              <ul className="mt-8 mb-0 grid list-none gap-2 rounded-[12px] bg-brand-paper px-5 py-4 text-[15px] text-rh-muted">
-                {text.install.notes.map((note) => (
-                  <li key={note}>{note}</li>
-                ))}
-              </ul>
-            </div>
+          <div className="mx-auto max-w-[1180px] px-5 py-20 sm:px-8 sm:py-28">
+            <h2 className={`${sectionTitle} text-rh-navy`}>{text.install.title}</h2>
+            <p className="mt-5 mb-0 max-w-[640px] text-[18px]">{text.install.body}</p>
+            <a href={links.store} className={`${primaryButton} mt-8`}>
+              <Download size={18} aria-hidden="true" />
+              {text.install.store}
+            </a>
           </div>
         </section>
 
@@ -293,11 +260,6 @@ export function App() {
                 href={links.store}
               >
                 {text.footer.store}
-              </a>
-            </li>
-            <li>
-              <a className={`text-rh-link no-underline hover:underline ${focus}`} href={repository}>
-                {text.footer.source}
               </a>
             </li>
             <li>
