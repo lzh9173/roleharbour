@@ -1,6 +1,6 @@
 {
   "name": "roleharbour",
-  "version": "0.22.0",
+  "version": "0.22.1",
   "private": true,
   "type": "module",
   "description": "On-device job research companion for SEEK New Zealand",

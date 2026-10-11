@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.22.1
 
 - Replace the extension icons with Haru, RoleHarbour's mascot: her whole head at 48 and 128 px, and a close crop inside a sky rim at 16 and 32 px so the toolbar icon stays legible.
 - Keep the border on visa verdict pills such as "Required", which could disappear because the pill's own style competed with a button reset, and show the "Try again" button in link colour.

@@ -6,7 +6,7 @@
 
 A Chrome extension for researching jobs on SEEK New Zealand. Everything runs on your device: it reads the visible advertisement, keeps the source statement behind each result (shown on hover) and matches employers against a locally stored accredited-employer list. There is no account, credential or remote analysis service.
 
-**Version 0.22.0 · Chrome 116+ · Manifest V3**
+**Version 0.22.1 · Chrome 116+ · Manifest V3**
 
 Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe), or load a build from [GitHub Releases](https://github.com/lzh9173/roleharbour/releases/latest).
 
