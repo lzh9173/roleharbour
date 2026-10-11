@@ -1,0 +1,88 @@
+/* The extension's theme, so the demo panel's components look exactly as they do on SEEK. */
+@import '../../src/styles/tailwind.css';
+@source './**/*.tsx';
+@source '../../src/inpage/*.tsx';
+@source '../../src/inpage/styles.ts';
+
+/* RoleHarbour's own colours, from brand/README.md. Navy and text come from the theme above. */
+@theme {
+  --color-brand-amber: #f5b841;
+  --color-brand-sky: #cfe8ff;
+  --color-brand-paper: #f7f8fa;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 72px;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-brand-paper);
+    color: var(--color-rh-text);
+    font: 17px/1.6 var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+/* Tight display tracking and leading suit Latin type; Chinese needs its natural spacing. Unlayered,
+   so it wins over the tracking and leading utilities on the same element. */
+:lang(zh) .display {
+  letter-spacing: 0;
+  line-height: 1.18;
+}
+
+/* The highlighter: an amber band under the lower half of the words, like the banner. */
+.marker {
+  background-image: linear-gradient(var(--color-brand-amber), var(--color-brand-amber));
+  background-repeat: no-repeat;
+  background-position: 0 88%;
+  background-size: 100% 0.48em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0 0.06em;
+  margin: 0 -0.06em;
+}
+
+/* The page's one unprompted motion: the hero highlighter sweeps in once. */
+.marker-sweep {
+  animation: marker-sweep 900ms cubic-bezier(0.65, 0, 0.35, 1) 350ms both;
+}
+@keyframes marker-sweep {
+  from {
+    background-size: 0% 0.48em;
+  }
+}
+
+/* A source sentence in the demo ad: the same marker, swept across when it is pointed at. */
+.source-mark {
+  color: inherit;
+  background-image: linear-gradient(#f5b84199, #f5b84199);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 100%;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  border-radius: 3px;
+  padding: 1px 2px;
+  margin: -1px -2px;
+  animation: marker-sweep-full 420ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes marker-sweep-full {
+  from {
+    background-size: 0% 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker-sweep,
+  .source-mark {
+    animation: none;
+  }
+}
