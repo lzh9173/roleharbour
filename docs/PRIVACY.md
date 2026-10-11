@@ -43,4 +43,4 @@ Uninstalling removes extension-local data. Reloading or upgrading in the same un
 
 ## Distribution
 
-This version is supplied as a local Chrome installation package and has not been submitted to the Chrome Web Store. Store publication still requires developer contact information, a hosted privacy page and completed store disclosures.
+RoleHarbour is published on the [Chrome Web Store](https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe) as "RoleHarbour · NZ Job Companion" and supplied as an unpacked installation package on GitHub Releases. Store updates go through Google's review, so the store version can briefly lag behind the version this notice describes.
