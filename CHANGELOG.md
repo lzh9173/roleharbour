@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Publish the promotional site at https://lzh9173.github.io/roleharbour/, deployed to GitHub Pages from `main`. The repository is private, so the site now carries its own privacy notice and changelog pages, rendered from the repository's Markdown at build time, no longer links to GitHub and drops the GitHub Releases download.
+
 ## 0.22.1
 
 - Replace the extension icons with Haru, RoleHarbour's mascot: her whole head at 48 and 128 px, and a close crop inside a sky rim at 16 and 32 px so the toolbar icon stays legible.

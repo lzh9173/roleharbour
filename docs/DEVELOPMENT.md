@@ -113,6 +113,8 @@ These commands update files on disk. Users must reload the extension at `chrome:
 
 `.github/workflows/release.yml` runs for `v*` tags and can be retried manually against a tag. It calls the same CI workflow, downloads that run's verified artifact, checks SHA-256 and uses GitHub CLI to create a draft, upload assets and publish. Only the publication job receives `contents: write`. No personal access token or service secret is required. A failed upload leaves a draft that can be retried; an already published version is never replaced by rerunning this workflow.
 
+`.github/workflows/pages.yml` builds the promotional site on every push to `main` (or on manual dispatch) and deploys `output/site/` to GitHub Pages at <https://lzh9173.github.io/roleharbour/>. Only the deployment job receives `pages: write` and `id-token: write`, and the `github-pages` environment accepts deployments from `main` only. Pull requests are not deployed; CI builds the site for them.
+
 For a new version:
 
 1. Update `package.json`, `release/INSTALL.txt` and version references in the documentation. Add a `## MAJOR.MINOR.PATCH` section to `CHANGELOG.md`. WXT derives the manifest version from `package.json`.
