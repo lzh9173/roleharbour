@@ -22,7 +22,13 @@ export default tseslint.config(
   },
   {
     // Type-aware rules for application code; tests and data stay syntax-only.
-    files: ['src/**/*.{ts,tsx}', 'entrypoints/**/*.{ts,tsx}', 'data/**/*.ts', 'scripts/**/*.ts'],
+    files: [
+      'src/**/*.{ts,tsx}',
+      'entrypoints/**/*.{ts,tsx}',
+      'data/**/*.ts',
+      'scripts/**/*.ts',
+      'site/src/**/*.{ts,tsx}',
+    ],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },

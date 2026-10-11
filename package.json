@@ -16,10 +16,13 @@
     "catalog:software": "node --experimental-strip-types scripts/import-software-skills.ts",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
     "postinstall": "wxt prepare",
-    "format": "prettier --write src entrypoints data scripts tests public docs README.md CHANGELOG.md .github *.ts *.json *.yaml",
-    "format:check": "prettier --check src entrypoints data scripts tests public docs README.md CHANGELOG.md .github *.ts *.json *.yaml",
+    "format": "prettier --write src entrypoints data scripts tests public docs site README.md CHANGELOG.md .github *.ts *.json *.yaml",
+    "format:check": "prettier --check src entrypoints data scripts tests public docs site README.md CHANGELOG.md .github *.ts *.json *.yaml",
     "test:release": "python3 -m unittest discover -s tests -p '*_test.py'",
-    "release:prepare": "python3 scripts/prepare-release.py"
+    "release:prepare": "python3 scripts/prepare-release.py",
+    "site:dev": "vite --config site/vite.config.ts",
+    "site:build": "vite build --config site/vite.config.ts",
+    "site:preview": "vite preview --config site/vite.config.ts"
   },
   "dependencies": {
     "idb": "^8.0.3",

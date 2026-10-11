@@ -47,6 +47,8 @@ jobs:
         run: pnpm audit --audit-level=high --registry=https://registry.npmjs.org
       - name: Build production ZIP
         run: pnpm zip
+      - name: Build promotional site
+        run: pnpm site:build
       - name: Validate and prepare release assets
         run: pnpm release:prepare
       - name: Store verified package

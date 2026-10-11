@@ -66,6 +66,7 @@ data/
 public/                 Extension icons, Chrome locale metadata and attribution
 brand/                  Haru the mascot, icon source art, logo, README banner and the promo video
 promo/                  Promo video source: shots, synthesised music, renderer and captured local reading
+site/                   Promotional web page (React and Vite), built into output/site/
 scripts/                Catalogue/vocabulary import, icon generation and release validation
 tests/                  Regression tests, synthetic fixtures and Python release-validation tests
 docs/                   Development guide, privacy notice, and brand and promo design notes
@@ -145,6 +146,14 @@ node promo/render.mjs                              # Promo video and poster into
 ```
 
 See [`brand/README.md`](brand/README.md) and [`promo/README.md`](promo/README.md).
+
+The promotional page in `site/` is a single static React page in English and Simplified Chinese. Its demo renders the extension's own panel components with the captured reading in `promo/data/`, and hovering a result highlights its sentence in the ad. It is built with relative URLs, so `output/site/` can be served from any path, including a GitHub Pages project site; it is not deployed yet.
+
+```sh
+pnpm site:dev                         # Development server
+pnpm site:build                       # Static build into output/site/
+pnpm site:preview                     # Serve the build locally
+```
 
 Tests use synthetic fixtures, mocked Chrome/network boundaries and temporary IndexedDB. The labelled synthetic dataset `tests/fixtures/role-benchmark.json` is a regression fixture for the local engine, not a measure of live accuracy.
 
