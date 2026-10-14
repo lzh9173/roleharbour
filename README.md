@@ -53,7 +53,7 @@ Upgrading from a version with AI analysis deletes its data on first start: saved
 ## Project structure
 
 ```text
-.github/                CI, tag-triggered releases and weekly dependency updates
+.github/                CI, releases, Pages, dependency updates, issue and PR templates
 entrypoints/
   background.ts          Message routing, local analysis, retired-data cleanup, employer update schedule
   seek.content.ts        Content-script registration on supported SEEK pages
@@ -182,6 +182,10 @@ Pushing a `vMAJOR.MINOR.PATCH` tag reruns those checks and publishes a GitHub Re
 Read the [privacy notice](docs/PRIVACY.md), [test-data rules](tests/fixtures/README.md), [catalogue attribution](data/occupations/README.md) and `public/occupation-sources.txt`.
 
 RoleHarbour is independent of SEEK and INZ. It is published on the [Chrome Web Store](https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe) and as unpacked packages on GitHub Releases.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
