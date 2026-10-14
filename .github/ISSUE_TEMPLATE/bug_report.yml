@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in the extension or site does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not paste complete job adverts, personal details or exported employer lists. Quote only the sentence that matters, or paraphrase it.
+  - type: input
+    id: version
+    attributes:
+      label: RoleHarbour version
+      description: Shown on chrome://extensions
+      placeholder: 0.22.1
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installed from
+      options:
+        - Chrome Web Store
+        - GitHub Releases (unpacked)
+        - Built from source
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a job on nz.seek.com
+        2. ...
+  - type: textarea
+    id: wording
+    attributes:
+      label: Relevant advert wording (optional)
+      description: The one or two sentences the panel misread, if any
+  - type: input
+    id: browser
+    attributes:
+      label: Chrome version and interface language
+      placeholder: Chrome 141, English
