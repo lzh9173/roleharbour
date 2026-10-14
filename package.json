@@ -2,6 +2,7 @@
   "name": "roleharbour",
   "version": "0.22.1",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "On-device job research companion for SEEK New Zealand",
   "scripts": {

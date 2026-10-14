@@ -1,6 +1,6 @@
 # Promo video
 
-A 25.8-second, 1920 × 1080, 60 fps promo (100 BPM; every time lives in `timeline.json`) for the README and Release pages. Design: [`docs/superpowers/specs/2026-10-11-brand-and-promo-design.md`](../docs/superpowers/specs/2026-10-11-brand-and-promo-design.md).
+A 25.8-second, 1920 × 1080, 60 fps promo (100 BPM; every time lives in `timeline.json`) for the promotional site.
 
 ## Build
 

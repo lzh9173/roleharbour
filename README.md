@@ -37,7 +37,7 @@ New versions reach the store after Google's review, so the store can be briefly 
 
 ### From GitHub Releases
 
-1. Download the Chrome ZIP from [GitHub Releases](https://github.com/lzh9173/roleharbour/releases/latest), then extract it. Each release includes installation notes and SHA-256 checksums. Access to this private repository requires a GitHub account with permission.
+1. Download the Chrome ZIP from [GitHub Releases](https://github.com/lzh9173/roleharbour/releases/latest), then extract it. Each release includes installation notes and SHA-256 checksums.
 2. Open `chrome://extensions`, enable **Developer mode**, then choose **Load unpacked** and select the extracted directory containing `manifest.json`.
 3. Open a public job on `https://nz.seek.com` or `https://www.seek.co.nz`. The panel needs no setup. Employer matching becomes available after the initial list download, or after importing a valid employer backup.
 4. Open the extension's settings to choose a language or manage the employer list.
@@ -77,7 +77,7 @@ promo/                  Promo video source: shots, synthesised music, renderer a
 site/                   Promotional web page (React and Vite), built into output/site/
 scripts/                Catalogue/vocabulary import, icon generation and release validation
 tests/                  Regression tests, synthetic fixtures and Python release-validation tests
-docs/                   Development guide, privacy notice, and brand and promo design notes
+docs/                   Development guide and privacy notice
 release/                Install notes and stable unpacked folders (ZIP and checksums are Release assets)
 ```
 
@@ -155,7 +155,7 @@ node promo/render.mjs                              # Promo video and poster into
 
 See [`brand/README.md`](brand/README.md) and [`promo/README.md`](promo/README.md).
 
-The promotional site in `site/` is a static React page in English and Simplified Chinese, published at <https://lzh9173.github.io/roleharbour/>. Its demo renders the extension's own panel components with the captured reading in `promo/data/`, and hovering a result highlights its sentence in the ad. This repository is private, so the site never links to GitHub: it installs through the Chrome Web Store and publishes its own `privacy.html` and `changelog.html`, rendered from `docs/PRIVACY.md` and `CHANGELOG.md` at build time; links in those two files must be absolute and must not point into the repository. It is built with relative URLs into `output/site/`, and `.github/workflows/pages.yml` deploys it on every push to `main`.
+The promotional site in `site/` is a static React page in English and Simplified Chinese, published at <https://lzh9173.github.io/roleharbour/>. Its demo renders the extension's own panel components with the captured reading in `promo/data/`, and hovering a result highlights its sentence in the ad. The site installs through the Chrome Web Store, links to this repository from its footer and publishes its own `privacy.html` and `changelog.html`, rendered from `docs/PRIVACY.md` and `CHANGELOG.md` at build time; links in those two files must be absolute and must not point into the repository. It is built with relative URLs into `output/site/`, and `.github/workflows/pages.yml` deploys it on every push to `main`.
 
 ```sh
 pnpm site:dev                         # Development server
@@ -182,3 +182,7 @@ Pushing a `vMAJOR.MINOR.PATCH` tag reruns those checks and publishes a GitHub Re
 Read the [privacy notice](docs/PRIVACY.md), [test-data rules](tests/fixtures/README.md), [catalogue attribution](data/occupations/README.md) and `public/occupation-sources.txt`.
 
 RoleHarbour is independent of SEEK and INZ. It is published on the [Chrome Web Store](https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe) and as unpacked packages on GitHub Releases.
+
+## License
+
+Code is released under the [MIT License](LICENSE). Bundled ANZSCO and O\*NET data keep their CC BY 4.0 licences and attribution requirements; see `public/occupation-sources.txt`. The RoleHarbour name and Haru are the project's identity: please do not use them in a way that suggests your fork is the official extension.

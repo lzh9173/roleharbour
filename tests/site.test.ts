@@ -115,12 +115,11 @@ describe('site pages', () => {
   const hrefs = (html: string) =>
     [...html.matchAll(/<a [^>]*href="([^"]+)"/g)].map((match) => match[1]!);
 
-  // The repository is private: visitors cannot open anything on GitHub.
-  it('links to its own privacy notice and changelog, not to GitHub', () => {
+  it('links to its own privacy notice and changelog, and to the source repository', () => {
     const links = hrefs(renderToStaticMarkup(createElement(App)));
     expect(links).toContain('./privacy.html');
     expect(links).toContain('./changelog.html');
-    for (const link of links) expect(link).not.toContain('github.com');
+    expect(links).toContain('https://github.com/lzh9173/roleharbour');
   });
 
   it('renders the privacy notice and changelog from the repository', () => {

@@ -1,6 +1,6 @@
 # RoleHarbour brand
 
-Haru the mascot, the extension icons' source art, the logo, the README banner and the promo video. The design and its decisions are in [`docs/superpowers/specs/2026-10-11-brand-and-promo-design.md`](../docs/superpowers/specs/2026-10-11-brand-and-promo-design.md).
+Haru the mascot, the extension icons' source art, the logo, the README banner and the promo video.
 
 ![RoleHarbour lockup](logo/lockup@2x.png)
 
