@@ -85,6 +85,7 @@ const en = {
     store: 'Chrome Web Store',
     privacy: 'Privacy notice',
     changelog: 'Changelog',
+    source: 'Source on GitHub',
     haru: 'Haru is AI-generated artwork.',
   },
 };
@@ -174,6 +175,7 @@ const zh: Copy = {
     store: 'Chrome 网上应用店',
     privacy: '隐私说明（英文）',
     changelog: '更新日志（英文）',
+    source: 'GitHub 源码',
     haru: 'Haru 形象由 AI 生成。',
   },
 };

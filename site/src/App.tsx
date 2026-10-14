@@ -10,12 +10,13 @@ import { copy, type Lang } from './copy';
 import { Demo } from './Demo';
 import { Features } from './Features';
 
-// The repository is private, so nothing links to GitHub: installs go through the store.
+// Installs go through the store; the footer also links to the open-source repository.
 const links = {
   store:
     'https://chromewebstore.google.com/detail/roleharbour-%C2%B7-nz-job-comp/mbeoakplonnbmiekenheljopipkhdhpe',
   privacy: './privacy.html',
   changelog: './changelog.html',
+  source: 'https://github.com/lzh9173/roleharbour',
 };
 const LANG_KEY = 'roleharbour-site-lang';
 const focus =
@@ -276,6 +277,14 @@ export function App() {
                 href={links.changelog}
               >
                 {text.footer.changelog}
+              </a>
+            </li>
+            <li>
+              <a
+                className={`text-rh-link no-underline hover:underline ${focus}`}
+                href={links.source}
+              >
+                {text.footer.source}
               </a>
             </li>
           </ul>
