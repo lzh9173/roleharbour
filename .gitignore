@@ -19,3 +19,7 @@ release/roleharbour-*-chrome/
 # Python release verification bytecode.
 __pycache__/
 *.pyc
+
+# Local agent and editor state.
+.claude/
+.superpowers/
